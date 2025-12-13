@@ -32,11 +32,20 @@ Track employee work hours with clock-in/clock-out functionality:
 
 ## Technology Stack
 
+### Backend
 - **Language**: Go 1.21+
 - **Database**: PostgreSQL
 - **Authentication**: JWT (JSON Web Tokens)
 - **Router**: Gorilla Mux
 - **Password Hashing**: bcrypt
+
+### Frontend
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **Routing**: React Router v6
+- **HTTP Client**: Axios
+- **Date Utilities**: date-fns
 
 ## Project Structure
 
@@ -60,8 +69,20 @@ modular-erp/
 │           └── service.go       # Business logic
 ├── pkg/
 │   └── utils/                   # Shared utilities (JWT)
-├── .env.example                 # Environment variables template
+├── frontend/                    # React + TypeScript frontend
+│   ├── src/
+│   │   ├── components/          # React components
+│   │   ├── contexts/            # React contexts (auth, etc.)
+│   │   ├── pages/               # Page components
+│   │   ├── services/            # API client
+│   │   ├── types/               # TypeScript types
+│   │   └── utils/               # Utility functions
+│   ├── package.json
+│   └── vite.config.ts
+├── .env.example                 # Backend environment variables
 ├── go.mod                       # Go module definition
+├── Dockerfile                   # Docker image for backend
+├── docker-compose.yml           # Full stack setup
 └── README.md                    # This file
 ```
 
@@ -71,8 +92,53 @@ modular-erp/
 
 - Go 1.21 or higher
 - PostgreSQL 12 or higher
+- Node.js 18+ and npm (for frontend)
 
-### Installation
+### Quick Start with Full Stack
+
+#### 1. Start the Backend
+
+```bash
+# Set up database
+createdb modular_erp
+
+# Configure backend
+cp .env.example .env
+# Edit .env if needed
+
+# Install Go dependencies
+go mod download
+
+# Run the backend server
+go run cmd/server/main.go
+```
+
+The backend will start on `http://localhost:8080`
+
+#### 2. Start the Frontend
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Configure frontend
+cp .env.example .env
+# Edit .env if backend is not on localhost:8080
+
+# Run the development server
+npm run dev
+```
+
+The frontend will start on `http://localhost:3000`
+
+#### 3. Access the Application
+
+Open your browser and go to `http://localhost:3000`
+
+### Backend Only Installation
 
 1. Clone the repository:
 ```bash
@@ -103,6 +169,10 @@ go run cmd/server/main.go
 ```
 
 The server will start on `http://localhost:8080` by default.
+
+### Frontend Only Installation
+
+See the [frontend README](./frontend/README.md) for detailed frontend setup and development instructions.
 
 ### Environment Variables
 
