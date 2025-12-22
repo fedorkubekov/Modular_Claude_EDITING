@@ -41,17 +41,25 @@ func main() {
 	// Apply global middleware
 	router.Use(middleware.CORS)
 
+	// Handle preflight OPTIONS requests globally
+	router.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.WriteHeader(http.StatusOK)
+	})
+
 	// Health check endpoint
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"healthy"}`))
-	}).Methods("GET")
+	}).Methods("GET", "OPTIONS")
 
 	// Auth endpoints
 	authHandler := handlers.NewAuthHandler(database.DB, cfg.JWT.Secret, cfg.JWT.Expiration)
-	router.HandleFunc("/api/auth/login", authHandler.Login).Methods("POST")
-	router.HandleFunc("/api/auth/register", authHandler.Register).Methods("POST")
+	router.HandleFunc("/api/auth/login", authHandler.Login).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/auth/register", authHandler.Register).Methods("POST", "OPTIONS")
 
 	// Register module routes based on configuration
 	if cfg.Modules.Attendance {
