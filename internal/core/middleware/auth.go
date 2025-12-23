@@ -21,6 +21,13 @@ const (
 func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip authentication for OPTIONS preflight requests
+			// CORS preflight requests don't include auth headers
+			if r.Method == "OPTIONS" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				respondWithError(w, http.StatusUnauthorized, "Authorization header required")
@@ -52,6 +59,12 @@ func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
 func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip role check for OPTIONS preflight requests
+			if r.Method == "OPTIONS" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			claims, ok := r.Context().Value(UserClaimsKey).(*utils.Claims)
 			if !ok {
 				respondWithError(w, http.StatusUnauthorized, "Unauthorized")
