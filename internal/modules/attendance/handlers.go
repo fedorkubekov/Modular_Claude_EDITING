@@ -205,6 +205,92 @@ func (h *Handler) GetReport(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetEmployees retrieves all employees for the company (manager/admin only)
+func (h *Handler) GetEmployees(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(middleware.UserClaimsKey).(*utils.Claims)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	employees, err := h.service.GetEmployeesWithStats(claims.CompanyID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve employees")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"employees": employees,
+		"count":     len(employees),
+	})
+}
+
+// UpdateEmployeeSchedule updates an employee's employment type and shift (manager/admin only)
+func (h *Handler) UpdateEmployeeSchedule(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(middleware.UserClaimsKey).(*utils.Claims)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Get employee ID from URL path
+	employeeIDStr := r.URL.Query().Get("id")
+	if employeeIDStr == "" {
+		respondWithError(w, http.StatusBadRequest, "Employee ID is required")
+		return
+	}
+
+	employeeID, err := strconv.Atoi(employeeIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid employee ID")
+		return
+	}
+
+	var req struct {
+		EmploymentType string `json:"employment_type"`
+		ShiftType      string `json:"shift_type"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Validate employment type
+	validEmploymentTypes := map[string]bool{
+		"Full-Time": true,
+		"Part-Time": true,
+		"Seasonal":  true,
+		"Temporary": true,
+		"On-Call":   true,
+	}
+	if !validEmploymentTypes[req.EmploymentType] {
+		respondWithError(w, http.StatusBadRequest, "Invalid employment type")
+		return
+	}
+
+	// Validate shift type
+	validShiftTypes := map[string]bool{
+		"First Shift":  true,
+		"Second Shift": true,
+		"Third Shift":  true,
+	}
+	if !validShiftTypes[req.ShiftType] {
+		respondWithError(w, http.StatusBadRequest, "Invalid shift type")
+		return
+	}
+
+	err = h.service.UpdateEmployeeSchedule(claims.CompanyID, employeeID, req.EmploymentType, req.ShiftType)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Employee schedule updated successfully",
+	})
+}
+
 // Helper functions
 func respondWithError(w http.ResponseWriter, code int, message string) {
 	respondWithJSON(w, code, map[string]string{"error": message})

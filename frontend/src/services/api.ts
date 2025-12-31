@@ -11,6 +11,8 @@ import type {
   ShiftsWithUserInfoResponse,
   ReportResponse,
   ApiError,
+  EmployeesResponse,
+  UpdateScheduleRequest,
 } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -111,6 +113,16 @@ class ApiService {
       params: { start_date: startDate, end_date: endDate },
     });
     return response.data;
+  }
+
+  // Employee Management - Manager/Admin endpoints
+  async getEmployees(): Promise<EmployeesResponse> {
+    const response = await this.client.get<EmployeesResponse>('/api/attendance/employees');
+    return response.data;
+  }
+
+  async updateEmployeeSchedule(employeeId: number, data: UpdateScheduleRequest): Promise<void> {
+    await this.client.put(`/api/attendance/employees/schedule?id=${employeeId}`, data);
   }
 
   // Error helper

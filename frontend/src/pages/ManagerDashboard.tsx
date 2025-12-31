@@ -4,6 +4,7 @@ import { api } from '@/services/api';
 import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { EmployeeList } from '@/components/EmployeeList';
 import type { ShiftWithUserInfo, ShiftReport } from '@/types';
 import { formatDateTime, formatTime, calculateDuration, formatHours } from '@/utils/format';
 import { format, subDays } from 'date-fns';
@@ -126,6 +127,9 @@ export const ManagerDashboard = () => {
           </Card>
         </div>
       )}
+
+      {/* Employee Management */}
+      <EmployeeList />
 
       {/* All Shifts Table */}
       <Card title="All Employee Shifts">
