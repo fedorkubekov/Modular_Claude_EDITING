@@ -60,6 +60,8 @@ func RunMigrations() error {
 			password_hash VARCHAR(255) NOT NULL,
 			full_name VARCHAR(255) NOT NULL,
 			role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'manager', 'employee')),
+			employment_type VARCHAR(50) DEFAULT 'Full-Time' CHECK (employment_type IN ('Full-Time', 'Part-Time', 'Seasonal', 'Temporary', 'On-Call')),
+			shift_type VARCHAR(50) DEFAULT 'First Shift' CHECK (shift_type IN ('First Shift', 'Second Shift', 'Third Shift')),
 			is_active BOOLEAN DEFAULT true,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -81,6 +83,17 @@ func RunMigrations() error {
 		`CREATE INDEX IF NOT EXISTS idx_shifts_company_id ON shifts(company_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_shifts_clock_in ON shifts(clock_in)`,
 		`CREATE INDEX IF NOT EXISTS idx_users_company_id ON users(company_id)`,
+
+		// Add employment_type and shift_type columns if they don't exist
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='employment_type') THEN
+				ALTER TABLE users ADD COLUMN employment_type VARCHAR(50) DEFAULT 'Full-Time' CHECK (employment_type IN ('Full-Time', 'Part-Time', 'Seasonal', 'Temporary', 'On-Call'));
+			END IF;
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='shift_type') THEN
+				ALTER TABLE users ADD COLUMN shift_type VARCHAR(50) DEFAULT 'First Shift' CHECK (shift_type IN ('First Shift', 'Second Shift', 'Third Shift'));
+			END IF;
+		END $$;`,
 	}
 
 	for i, migration := range migrations {

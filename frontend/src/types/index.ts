@@ -1,4 +1,7 @@
 // User and Authentication Types
+export type EmploymentType = 'Full-Time' | 'Part-Time' | 'Seasonal' | 'Temporary' | 'On-Call';
+export type ShiftType = 'First Shift' | 'Second Shift' | 'Third Shift';
+
 export interface User {
   id: number;
   company_id: number;
@@ -6,6 +9,8 @@ export interface User {
   email: string;
   full_name: string;
   role: 'admin' | 'manager' | 'employee';
+  employment_type: EmploymentType;
+  shift_type: ShiftType;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -98,6 +103,29 @@ export interface ClockOutResponse {
 export interface ActiveShiftResponse {
   message?: string;
   shift: Shift | null;
+}
+
+// Employee Management Types
+export interface EmployeeWithStats {
+  id: number;
+  full_name: string;
+  username: string;
+  email: string;
+  role: string;
+  employment_type: EmploymentType;
+  shift_type: ShiftType;
+  monthly_hours: number;
+  is_active: boolean;
+}
+
+export interface EmployeesResponse {
+  employees: EmployeeWithStats[];
+  count: number;
+}
+
+export interface UpdateScheduleRequest {
+  employment_type: EmploymentType;
+  shift_type: ShiftType;
 }
 
 // Context Types

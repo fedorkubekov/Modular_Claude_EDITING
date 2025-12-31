@@ -50,3 +50,13 @@ func (s *Service) GetAllShifts(companyID int, startDate, endDate time.Time, limi
 func (s *Service) GetReport(companyID int, startDate, endDate time.Time) (*ShiftReport, error) {
 	return GetShiftReport(s.db, companyID, startDate, endDate)
 }
+
+// GetEmployeesWithStats retrieves all employees with their monthly hours worked (manager/admin only)
+func (s *Service) GetEmployeesWithStats(companyID int) ([]EmployeeWithStats, error) {
+	return GetEmployeesWithMonthlyHours(s.db, companyID)
+}
+
+// UpdateEmployeeSchedule updates an employee's schedule (manager/admin only)
+func (s *Service) UpdateEmployeeSchedule(companyID, employeeID int, employmentType, shiftType string) error {
+	return UpdateEmployeeSchedule(s.db, companyID, employeeID, employmentType, shiftType)
+}

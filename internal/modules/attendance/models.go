@@ -36,6 +36,19 @@ type ShiftReport struct {
 	AverageHours    float64 `json:"average_hours"`
 }
 
+// EmployeeWithStats represents an employee with their statistics
+type EmployeeWithStats struct {
+	ID               int     `json:"id"`
+	FullName         string  `json:"full_name"`
+	Username         string  `json:"username"`
+	Email            string  `json:"email"`
+	Role             string  `json:"role"`
+	EmploymentType   string  `json:"employment_type"`
+	ShiftType        string  `json:"shift_type"`
+	MonthlyHours     float64 `json:"monthly_hours"`
+	IsActive         bool    `json:"is_active"`
+}
+
 // CreateShift creates a new shift record
 func CreateShift(db *sql.DB, userID, companyID int) (*Shift, error) {
 	// Check if user has an active shift
@@ -213,4 +226,91 @@ func GetShiftReport(db *sql.DB, companyID int, startDate, endDate time.Time) (*S
 	}
 
 	return report, nil
+}
+
+// GetEmployeesWithMonthlyHours retrieves all employees with their monthly hours worked
+func GetEmployeesWithMonthlyHours(db *sql.DB, companyID int) ([]EmployeeWithStats, error) {
+	// Calculate start of current month
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+
+	rows, err := db.Query(`
+		SELECT
+			u.id,
+			u.full_name,
+			u.username,
+			u.email,
+			u.role,
+			u.employment_type,
+			u.shift_type,
+			u.is_active,
+			COALESCE(SUM(
+				CASE
+					WHEN s.status = 'completed' THEN EXTRACT(EPOCH FROM (s.clock_out - s.clock_in)) / 3600
+					ELSE 0
+				END
+			), 0) as monthly_hours
+		FROM users u
+		LEFT JOIN shifts s ON u.id = s.user_id
+			AND s.clock_in >= $2
+			AND s.clock_in < $3
+			AND s.status = 'completed'
+		WHERE u.company_id = $1 AND u.is_active = true
+		GROUP BY u.id, u.full_name, u.username, u.email, u.role, u.employment_type, u.shift_type, u.is_active
+		ORDER BY u.full_name
+	`, companyID, startOfMonth, endOfMonth)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var employees []EmployeeWithStats
+	for rows.Next() {
+		var emp EmployeeWithStats
+		err := rows.Scan(
+			&emp.ID,
+			&emp.FullName,
+			&emp.Username,
+			&emp.Email,
+			&emp.Role,
+			&emp.EmploymentType,
+			&emp.ShiftType,
+			&emp.IsActive,
+			&emp.MonthlyHours,
+		)
+		if err != nil {
+			return nil, err
+		}
+		employees = append(employees, emp)
+	}
+
+	return employees, nil
+}
+
+// UpdateEmployeeSchedule updates an employee's employment type and shift type
+func UpdateEmployeeSchedule(db *sql.DB, companyID, employeeID int, employmentType, shiftType string) error {
+	// Verify employee belongs to the company
+	var count int
+	err := db.QueryRow(`
+		SELECT COUNT(*) FROM users WHERE id = $1 AND company_id = $2
+	`, employeeID, companyID).Scan(&count)
+
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return errors.New("employee not found or does not belong to your company")
+	}
+
+	// Update employee schedule
+	_, err = db.Exec(`
+		UPDATE users
+		SET employment_type = $1, shift_type = $2, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $3 AND company_id = $4
+	`, employmentType, shiftType, employeeID, companyID)
+
+	return err
 }

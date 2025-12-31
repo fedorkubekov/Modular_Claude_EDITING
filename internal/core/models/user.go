@@ -10,16 +10,18 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID           int       `json:"id"`
-	CompanyID    int       `json:"company_id"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"` // Never send password hash in JSON
-	FullName     string    `json:"full_name"`
-	Role         string    `json:"role"` // admin, manager, employee
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID             int       `json:"id"`
+	CompanyID      int       `json:"company_id"`
+	Username       string    `json:"username"`
+	Email          string    `json:"email"`
+	PasswordHash   string    `json:"-"` // Never send password hash in JSON
+	FullName       string    `json:"full_name"`
+	Role           string    `json:"role"` // admin, manager, employee
+	EmploymentType string    `json:"employment_type"`
+	ShiftType      string    `json:"shift_type"`
+	IsActive       bool      `json:"is_active"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // Company represents a business/company in the system
@@ -56,11 +58,11 @@ func ValidateRole(role string) bool {
 func GetUserByUsername(db *sql.DB, username string) (*User, error) {
 	user := &User{}
 	err := db.QueryRow(`
-		SELECT id, company_id, username, email, password_hash, full_name, role, is_active, created_at, updated_at
+		SELECT id, company_id, username, email, password_hash, full_name, role, employment_type, shift_type, is_active, created_at, updated_at
 		FROM users WHERE username = $1 AND is_active = true
 	`, username).Scan(
 		&user.ID, &user.CompanyID, &user.Username, &user.Email, &user.PasswordHash,
-		&user.FullName, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		&user.FullName, &user.Role, &user.EmploymentType, &user.ShiftType, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -77,11 +79,11 @@ func GetUserByUsername(db *sql.DB, username string) (*User, error) {
 func GetUserByID(db *sql.DB, id int) (*User, error) {
 	user := &User{}
 	err := db.QueryRow(`
-		SELECT id, company_id, username, email, password_hash, full_name, role, is_active, created_at, updated_at
+		SELECT id, company_id, username, email, password_hash, full_name, role, employment_type, shift_type, is_active, created_at, updated_at
 		FROM users WHERE id = $1 AND is_active = true
 	`, id).Scan(
 		&user.ID, &user.CompanyID, &user.Username, &user.Email, &user.PasswordHash,
-		&user.FullName, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		&user.FullName, &user.Role, &user.EmploymentType, &user.ShiftType, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
