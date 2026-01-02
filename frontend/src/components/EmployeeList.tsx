@@ -99,15 +99,19 @@ export const EmployeeList = () => {
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Employee Management</h2>
 
         {error && (
-          <Alert variant="error" onClose={() => setError('')} className="mb-4">
-            {error}
-          </Alert>
+          <div className="mb-4">
+            <Alert variant="error" onClose={() => setError('')}>
+              {error}
+            </Alert>
+          </div>
         )}
 
         {success && (
-          <Alert variant="success" onClose={() => setSuccess('')} className="mb-4">
-            {success}
-          </Alert>
+          <div className="mb-4">
+            <Alert variant="success" onClose={() => setSuccess('')}>
+              {success}
+            </Alert>
+          </div>
         )}
 
         {employees.length === 0 ? (

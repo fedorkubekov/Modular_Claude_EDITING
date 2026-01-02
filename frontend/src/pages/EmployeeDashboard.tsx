@@ -15,18 +15,10 @@ export const EmployeeDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     loadActiveShift();
     loadShiftHistory();
-
-    // Update current time every second for active shift duration
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const loadActiveShift = async () => {
@@ -70,7 +62,7 @@ export const EmployeeDashboard = () => {
     setSuccess('');
 
     try {
-      const response = await api.clockOut({ notes });
+      await api.clockOut({ notes });
       setActiveShift(null);
       setNotes('');
       setSuccess('Successfully clocked out!');

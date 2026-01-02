@@ -1,5 +1,12 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/services/api';
 import { Card } from '@/components/ui/Card';
+import { Alert } from '@/components/ui/Alert';
+import { WeeklyCalendar } from '@/components/WeeklyCalendar';
+import { ShiftModal } from '@/components/ShiftModal';
+import type { ShiftWithUserInfo } from '@/types';
+import { format, startOfWeek, addWeeks } from 'date-fns';
 
 const SHIFT_TIMES: Record<string, string> = {
   'First Shift': '(8:00-17:00)',
@@ -9,6 +16,40 @@ const SHIFT_TIMES: Record<string, string> = {
 
 export const MySchedule = () => {
   const { user } = useAuth();
+  const [currentWeekStart, setCurrentWeekStart] = useState(
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
+  const [weekShifts, setWeekShifts] = useState<ShiftWithUserInfo[]>([]);
+  const [error, setError] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedShift, setSelectedShift] = useState<ShiftWithUserInfo | undefined>();
+
+  useEffect(() => {
+    loadWeekShifts();
+  }, [currentWeekStart]);
+
+  const loadWeekShifts = async () => {
+    try {
+      const weekStart = format(currentWeekStart, 'yyyy-MM-dd');
+      const response = await api.getWeekShifts(weekStart);
+      setWeekShifts(response.shifts || []);
+    } catch (err) {
+      setError(api.getErrorMessage(err));
+    }
+  };
+
+  const handlePreviousWeek = () => {
+    setCurrentWeekStart((prev) => addWeeks(prev, -1));
+  };
+
+  const handleNextWeek = () => {
+    setCurrentWeekStart((prev) => addWeeks(prev, 1));
+  };
+
+  const handleShiftClick = (shift: ShiftWithUserInfo) => {
+    setSelectedShift(shift);
+    setIsModalOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -16,6 +57,12 @@ export const MySchedule = () => {
         <h1 className="text-2xl font-bold text-gray-900">My Schedule</h1>
         <p className="text-gray-600">View your employment information and assigned shift</p>
       </div>
+
+      {error && (
+        <Alert variant="error" onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       {/* Schedule Information Card */}
       <Card title="My Schedule Information">
@@ -41,6 +88,30 @@ export const MySchedule = () => {
           </div>
         </div>
       </Card>
+
+      {/* Weekly Calendar */}
+      <div>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Weekly Schedule</h2>
+        <WeeklyCalendar
+          shifts={weekShifts}
+          currentWeekStart={currentWeekStart}
+          onPreviousWeek={handlePreviousWeek}
+          onNextWeek={handleNextWeek}
+          onShiftClick={handleShiftClick}
+          currentUserId={user?.id}
+          isManager={false}
+        />
+      </div>
+
+      {/* Shift Modal (read-only for employees) */}
+      <ShiftModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={async () => {}}
+        employees={[]}
+        existingShift={selectedShift}
+        isManager={false}
+      />
 
       {/* Additional Information */}
       <Card title="Schedule Details">

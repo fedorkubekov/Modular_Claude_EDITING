@@ -5,9 +5,11 @@ import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { EmployeeList } from '@/components/EmployeeList';
-import type { ShiftWithUserInfo } from '@/types';
+import { WeeklyCalendar } from '@/components/WeeklyCalendar';
+import { ShiftModal } from '@/components/ShiftModal';
+import type { ShiftWithUserInfo, EmployeeWithStats } from '@/types';
 import { formatDateTime, formatTime, calculateDuration } from '@/utils/format';
-import { format, subDays } from 'date-fns';
+import { format, subDays, startOfWeek, addWeeks } from 'date-fns';
 
 export const EmployeeManagement = () => {
   const { user } = useAuth();
@@ -17,9 +19,26 @@ export const EmployeeManagement = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Calendar state
+  const [currentWeekStart, setCurrentWeekStart] = useState(
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
+  const [weekShifts, setWeekShifts] = useState<ShiftWithUserInfo[]>([]);
+  const [employees, setEmployees] = useState<EmployeeWithStats[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalInitialDate, setModalInitialDate] = useState<Date | undefined>();
+  const [modalInitialHour, setModalInitialHour] = useState<number>(9);
+  const [modalInitialMinute, setModalInitialMinute] = useState<number>(0);
+  const [selectedShift, setSelectedShift] = useState<ShiftWithUserInfo | undefined>();
+
   useEffect(() => {
     loadShifts();
+    loadEmployees();
   }, []);
+
+  useEffect(() => {
+    loadWeekShifts();
+  }, [currentWeekStart]);
 
   const loadShifts = async () => {
     setIsLoading(true);
@@ -35,8 +54,78 @@ export const EmployeeManagement = () => {
     }
   };
 
+  const loadEmployees = async () => {
+    try {
+      const response = await api.getEmployees();
+      setEmployees(response.employees || []);
+    } catch (err) {
+      setError(api.getErrorMessage(err));
+    }
+  };
+
+  const loadWeekShifts = async () => {
+    try {
+      const weekStart = format(currentWeekStart, 'yyyy-MM-dd');
+      const response = await api.getWeekShifts(weekStart);
+      setWeekShifts(response.shifts || []);
+    } catch (err) {
+      setError(api.getErrorMessage(err));
+    }
+  };
+
   const handleFilterChange = () => {
     loadShifts();
+  };
+
+  const handlePreviousWeek = () => {
+    setCurrentWeekStart((prev) => addWeeks(prev, -1));
+  };
+
+  const handleNextWeek = () => {
+    setCurrentWeekStart((prev) => addWeeks(prev, 1));
+  };
+
+  const handleTimeSlotClick = (date: Date, hour: number, minute: number) => {
+    setSelectedShift(undefined);
+    setModalInitialDate(date);
+    setModalInitialHour(hour);
+    setModalInitialMinute(minute);
+    setIsModalOpen(true);
+  };
+
+  const handleShiftClick = (shift: ShiftWithUserInfo) => {
+    setSelectedShift(shift);
+    setModalInitialDate(undefined);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveShift = async (data: {
+    userId: number;
+    clockIn: string;
+    clockOut: string;
+  }) => {
+    if (selectedShift) {
+      // Update existing shift
+      await api.updateShift(selectedShift.id, {
+        clock_in: data.clockIn,
+        clock_out: data.clockOut,
+      });
+    } else {
+      // Create new shift
+      await api.assignShift({
+        user_id: data.userId,
+        clock_in: data.clockIn,
+        clock_out: data.clockOut,
+      });
+    }
+    await loadWeekShifts();
+  };
+
+  const handleDeleteShift = async () => {
+    if (selectedShift) {
+      await api.deleteShift(selectedShift.id);
+      await loadWeekShifts();
+    }
   };
 
   return (
@@ -54,6 +143,35 @@ export const EmployeeManagement = () => {
 
       {/* Employee List */}
       <EmployeeList />
+
+      {/* Weekly Calendar */}
+      <div>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Weekly Schedule</h2>
+        <WeeklyCalendar
+          shifts={weekShifts}
+          currentWeekStart={currentWeekStart}
+          onPreviousWeek={handlePreviousWeek}
+          onNextWeek={handleNextWeek}
+          onTimeSlotClick={handleTimeSlotClick}
+          onShiftClick={handleShiftClick}
+          currentUserId={user?.id}
+          isManager={true}
+        />
+      </div>
+
+      {/* Shift Modal */}
+      <ShiftModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveShift}
+        onDelete={selectedShift ? handleDeleteShift : undefined}
+        employees={employees}
+        initialDate={modalInitialDate}
+        initialHour={modalInitialHour}
+        initialMinute={modalInitialMinute}
+        existingShift={selectedShift}
+        isManager={true}
+      />
 
       {/* Date Range Filter for Shifts */}
       <Card title="Filter Employee Shifts">
