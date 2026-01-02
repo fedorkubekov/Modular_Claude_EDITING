@@ -60,3 +60,23 @@ func (s *Service) GetEmployeesWithStats(companyID int) ([]EmployeeWithStats, err
 func (s *Service) UpdateEmployeeSchedule(companyID, employeeID int, employmentType, shiftType string) error {
 	return UpdateEmployeeSchedule(s.db, companyID, employeeID, employmentType, shiftType)
 }
+
+// AssignShift assigns a shift to an employee (manager/admin only)
+func (s *Service) AssignShift(companyID, userID int, clockIn, clockOut time.Time) (*Shift, error) {
+	return AssignShift(s.db, companyID, userID, clockIn, clockOut)
+}
+
+// UpdateShift updates a shift (manager/admin only)
+func (s *Service) UpdateShift(companyID, shiftID int, clockIn, clockOut time.Time) error {
+	return UpdateShift(s.db, companyID, shiftID, clockIn, clockOut)
+}
+
+// DeleteShift deletes a shift (manager/admin only)
+func (s *Service) DeleteShift(companyID, shiftID int) error {
+	return DeleteShift(s.db, companyID, shiftID)
+}
+
+// GetWeekShifts retrieves all shifts for a week (manager/admin only)
+func (s *Service) GetWeekShifts(companyID int, weekStart time.Time) ([]ShiftWithUserInfo, error) {
+	return GetWeekShifts(s.db, companyID, weekStart)
+}

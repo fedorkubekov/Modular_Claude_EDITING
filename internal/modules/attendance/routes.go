@@ -29,4 +29,13 @@ func RegisterRoutes(router *mux.Router, db *sql.DB, jwtSecret string) {
 	managerRouter.HandleFunc("/report", handler.GetReport).Methods("GET", "OPTIONS")
 	managerRouter.HandleFunc("/employees", handler.GetEmployees).Methods("GET", "OPTIONS")
 	managerRouter.HandleFunc("/employees/schedule", handler.UpdateEmployeeSchedule).Methods("PUT", "OPTIONS")
+
+	// Calendar/Schedule management endpoints
+	managerRouter.HandleFunc("/shifts/week", handler.GetWeekShifts).Methods("GET", "OPTIONS")
+	managerRouter.HandleFunc("/shifts/assign", handler.AssignShift).Methods("POST", "OPTIONS")
+	managerRouter.HandleFunc("/shifts/update", handler.UpdateShift).Methods("PUT", "OPTIONS")
+	managerRouter.HandleFunc("/shifts/delete", handler.DeleteShift).Methods("DELETE", "OPTIONS")
+
+	// Employee calendar viewing (read-only)
+	attendanceRouter.HandleFunc("/shifts/week", handler.GetWeekShifts).Methods("GET", "OPTIONS")
 }

@@ -314,3 +314,84 @@ func UpdateEmployeeSchedule(db *sql.DB, companyID, employeeID int, employmentTyp
 
 	return err
 }
+
+// AssignShift creates a scheduled shift for an employee (manager function)
+func AssignShift(db *sql.DB, companyID, userID int, clockIn, clockOut time.Time) (*Shift, error) {
+	shift := &Shift{
+		UserID:    userID,
+		CompanyID: companyID,
+		ClockIn:   clockIn,
+		ClockOut:  &clockOut,
+		Status:    "completed", // Pre-assigned shifts are marked as completed
+	}
+
+	err := db.QueryRow(`
+		INSERT INTO shifts (user_id, company_id, clock_in, clock_out, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		RETURNING id, created_at, updated_at
+	`, shift.UserID, shift.CompanyID, shift.ClockIn, shift.ClockOut, shift.Status).Scan(
+		&shift.ID, &shift.CreatedAt, &shift.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return shift, nil
+}
+
+// UpdateShift updates an existing shift
+func UpdateShift(db *sql.DB, companyID, shiftID int, clockIn, clockOut time.Time) error {
+	_, err := db.Exec(`
+		UPDATE shifts
+		SET clock_in = $1, clock_out = $2, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $3 AND company_id = $4
+	`, clockIn, clockOut, shiftID, companyID)
+
+	return err
+}
+
+// DeleteShift deletes a shift
+func DeleteShift(db *sql.DB, companyID, shiftID int) error {
+	_, err := db.Exec(`
+		DELETE FROM shifts
+		WHERE id = $1 AND company_id = $2
+	`, shiftID, companyID)
+
+	return err
+}
+
+// GetWeekShifts retrieves all shifts for a specific week with user info
+func GetWeekShifts(db *sql.DB, companyID int, weekStart time.Time) ([]ShiftWithUserInfo, error) {
+	weekEnd := weekStart.AddDate(0, 0, 7)
+
+	rows, err := db.Query(`
+		SELECT s.id, s.user_id, s.company_id, s.clock_in, s.clock_out, s.status, s.notes,
+		       s.created_at, s.updated_at, u.username, u.full_name, u.role
+		FROM shifts s
+		JOIN users u ON s.user_id = u.id
+		WHERE s.company_id = $1 AND s.clock_in >= $2 AND s.clock_in < $3
+		ORDER BY s.clock_in
+	`, companyID, weekStart, weekEnd)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var shifts []ShiftWithUserInfo
+	for rows.Next() {
+		var shift ShiftWithUserInfo
+		err := rows.Scan(
+			&shift.ID, &shift.UserID, &shift.CompanyID, &shift.ClockIn, &shift.ClockOut,
+			&shift.Status, &shift.Notes, &shift.CreatedAt, &shift.UpdatedAt,
+			&shift.Username, &shift.FullName, &shift.Role,
+		)
+		if err != nil {
+			return nil, err
+		}
+		shifts = append(shifts, shift)
+	}
+
+	return shifts, nil
+}

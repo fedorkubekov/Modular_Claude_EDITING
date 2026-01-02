@@ -291,6 +291,169 @@ func (h *Handler) UpdateEmployeeSchedule(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// GetWeekShifts retrieves all shifts for a specific week (manager/admin only)
+func (h *Handler) GetWeekShifts(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(middleware.UserClaimsKey).(*utils.Claims)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	weekStartStr := r.URL.Query().Get("week_start")
+	if weekStartStr == "" {
+		respondWithError(w, http.StatusBadRequest, "week_start parameter is required")
+		return
+	}
+
+	weekStart, err := time.Parse("2006-01-02", weekStartStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid date format")
+		return
+	}
+
+	shifts, err := h.service.GetWeekShifts(claims.CompanyID, weekStart)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve shifts")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"shifts": shifts,
+		"count":  len(shifts),
+	})
+}
+
+// AssignShiftRequest represents a request to assign a shift
+type AssignShiftRequest struct {
+	UserID   int    `json:"user_id"`
+	ClockIn  string `json:"clock_in"`
+	ClockOut string `json:"clock_out"`
+}
+
+// AssignShift assigns a shift to an employee (manager/admin only)
+func (h *Handler) AssignShift(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(middleware.UserClaimsKey).(*utils.Claims)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req AssignShiftRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	clockIn, err := time.Parse(time.RFC3339, req.ClockIn)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid clock_in time format")
+		return
+	}
+
+	clockOut, err := time.Parse(time.RFC3339, req.ClockOut)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid clock_out time format")
+		return
+	}
+
+	shift, err := h.service.AssignShift(claims.CompanyID, req.UserID, clockIn, clockOut)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, map[string]interface{}{
+		"message": "Shift assigned successfully",
+		"shift":   shift,
+	})
+}
+
+// UpdateShiftRequest represents a request to update a shift
+type UpdateShiftRequest struct {
+	ClockIn  string `json:"clock_in"`
+	ClockOut string `json:"clock_out"`
+}
+
+// UpdateShift updates an existing shift (manager/admin only)
+func (h *Handler) UpdateShift(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(middleware.UserClaimsKey).(*utils.Claims)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	shiftIDStr := r.URL.Query().Get("id")
+	if shiftIDStr == "" {
+		respondWithError(w, http.StatusBadRequest, "Shift ID is required")
+		return
+	}
+
+	shiftID, err := strconv.Atoi(shiftIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid shift ID")
+		return
+	}
+
+	var req UpdateShiftRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	clockIn, err := time.Parse(time.RFC3339, req.ClockIn)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid clock_in time format")
+		return
+	}
+
+	clockOut, err := time.Parse(time.RFC3339, req.ClockOut)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid clock_out time format")
+		return
+	}
+
+	err = h.service.UpdateShift(claims.CompanyID, shiftID, clockIn, clockOut)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Shift updated successfully",
+	})
+}
+
+// DeleteShift deletes a shift (manager/admin only)
+func (h *Handler) DeleteShift(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(middleware.UserClaimsKey).(*utils.Claims)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	shiftIDStr := r.URL.Query().Get("id")
+	if shiftIDStr == "" {
+		respondWithError(w, http.StatusBadRequest, "Shift ID is required")
+		return
+	}
+
+	shiftID, err := strconv.Atoi(shiftIDStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid shift ID")
+		return
+	}
+
+	err = h.service.DeleteShift(claims.CompanyID, shiftID)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Shift deleted successfully",
+	})
+}
+
 // Helper functions
 func respondWithError(w http.ResponseWriter, code int, message string) {
 	respondWithJSON(w, code, map[string]string{"error": message})
