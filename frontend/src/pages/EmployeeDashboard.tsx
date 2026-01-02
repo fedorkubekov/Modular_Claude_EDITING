@@ -84,13 +84,11 @@ export const EmployeeDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Welcome, {user?.full_name}!
-          </h1>
-          <p className="text-gray-600">Employee Dashboard</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Welcome, {user?.full_name}!
+        </h1>
+        <p className="text-gray-600">Employee Dashboard</p>
       </div>
 
       {error && (
@@ -104,27 +102,6 @@ export const EmployeeDashboard = () => {
           {success}
         </Alert>
       )}
-
-      {/* Employee Info Card */}
-      <Card title="My Schedule Information">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Employment Type</p>
-            <p className="text-xl font-semibold text-blue-900">{user?.employment_type}</p>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Assigned Shift</p>
-            <p className="text-xl font-semibold text-green-900">
-              {user?.shift_type}{' '}
-              <span className="text-sm text-gray-600">
-                {user?.shift_type === 'First Shift' && '(8:00-17:00)'}
-                {user?.shift_type === 'Second Shift' && '(12:00-21:00)'}
-                {user?.shift_type === 'Third Shift' && '(21:00-6:00)'}
-              </span>
-            </p>
-          </div>
-        </div>
-      </Card>
 
       {/* Active Shift Card */}
       <Card title="Current Shift">

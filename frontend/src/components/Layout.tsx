@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from './ui/Button';
+import { Sidebar } from './Sidebar';
 
 interface LayoutProps {
   children: ReactNode;
@@ -44,19 +45,27 @@ export const Layout = ({ children }: LayoutProps) => {
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+      {/* Main Layout with Sidebar */}
+      <div className="flex">
+        {/* Sidebar */}
+        <Sidebar />
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <p className="text-center text-sm text-gray-500">
-            Modular ERP - Small Business Management System
-          </p>
+        {/* Main Content Area */}
+        <div className="flex-1">
+          <main className="px-8 py-8">
+            {children}
+          </main>
+
+          {/* Footer */}
+          <footer className="bg-white border-t border-gray-200 mt-12">
+            <div className="px-8 py-6">
+              <p className="text-center text-sm text-gray-500">
+                Modular ERP - Small Business Management System
+              </p>
+            </div>
+          </footer>
         </div>
-      </footer>
+      </div>
     </div>
   );
 };
