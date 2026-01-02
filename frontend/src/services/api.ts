@@ -13,6 +13,9 @@ import type {
   ApiError,
   EmployeesResponse,
   UpdateScheduleRequest,
+  AssignShiftRequest,
+  UpdateShiftRequest,
+  WeekShiftsResponse,
 } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -123,6 +126,26 @@ class ApiService {
 
   async updateEmployeeSchedule(employeeId: number, data: UpdateScheduleRequest): Promise<void> {
     await this.client.put(`/api/attendance/employees/schedule?id=${employeeId}`, data);
+  }
+
+  // Calendar - Week shifts
+  async getWeekShifts(weekStart: string): Promise<WeekShiftsResponse> {
+    const response = await this.client.get<WeekShiftsResponse>('/api/attendance/shifts/week', {
+      params: { week_start: weekStart },
+    });
+    return response.data;
+  }
+
+  async assignShift(data: AssignShiftRequest): Promise<void> {
+    await this.client.post('/api/attendance/shifts/assign', data);
+  }
+
+  async updateShift(shiftId: number, data: UpdateShiftRequest): Promise<void> {
+    await this.client.put(`/api/attendance/shifts/update?id=${shiftId}`, data);
+  }
+
+  async deleteShift(shiftId: number): Promise<void> {
+    await this.client.delete(`/api/attendance/shifts/delete?id=${shiftId}`);
   }
 
   // Error helper

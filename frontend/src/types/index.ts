@@ -128,6 +128,23 @@ export interface UpdateScheduleRequest {
   shift_type: ShiftType;
 }
 
+// Calendar Types
+export interface AssignShiftRequest {
+  user_id: number;
+  clock_in: string;
+  clock_out: string;
+}
+
+export interface UpdateShiftRequest {
+  clock_in: string;
+  clock_out: string;
+}
+
+export interface WeekShiftsResponse {
+  shifts: ShiftWithUserInfo[];
+  count: number;
+}
+
 // Context Types
 export interface AuthContextType {
   user: User | null;
