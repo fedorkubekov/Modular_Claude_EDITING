@@ -366,7 +366,8 @@ func GetWeekShifts(db *sql.DB, companyID int, weekStart time.Time) ([]ShiftWithU
 	weekEnd := weekStart.AddDate(0, 0, 7)
 
 	rows, err := db.Query(`
-		SELECT s.id, s.user_id, s.company_id, s.clock_in, s.clock_out, s.status, s.notes,
+		SELECT s.id, s.user_id, s.company_id, s.clock_in, s.clock_out, s.status,
+		       COALESCE(s.notes, '') as notes,
 		       s.created_at, s.updated_at, u.username, u.full_name, u.role
 		FROM shifts s
 		JOIN users u ON s.user_id = u.id
@@ -391,6 +392,10 @@ func GetWeekShifts(db *sql.DB, companyID int, weekStart time.Time) ([]ShiftWithU
 			return nil, err
 		}
 		shifts = append(shifts, shift)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return shifts, nil
