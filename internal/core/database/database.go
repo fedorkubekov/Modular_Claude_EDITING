@@ -94,6 +94,15 @@ func RunMigrations() error {
 				ALTER TABLE users ADD COLUMN shift_type VARCHAR(50) DEFAULT 'First Shift' CHECK (shift_type IN ('First Shift', 'Second Shift', 'Third Shift'));
 			END IF;
 		END $$;`,
+
+		// Update shifts status CHECK constraint to include 'assigned' status
+		`DO $$
+		BEGIN
+			-- Drop old constraint if it exists
+			ALTER TABLE shifts DROP CONSTRAINT IF EXISTS shifts_status_check;
+			-- Add new constraint with 'assigned' status
+			ALTER TABLE shifts ADD CONSTRAINT shifts_status_check CHECK (status IN ('assigned', 'in_progress', 'completed', 'cancelled'));
+		END $$;`,
 	}
 
 	for i, migration := range migrations {

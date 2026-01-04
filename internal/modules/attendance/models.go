@@ -167,7 +167,8 @@ func GetActiveShift(db *sql.DB, userID int) (*Shift, error) {
 // GetCompanyShifts retrieves all shifts for a company with user info
 func GetCompanyShifts(db *sql.DB, companyID int, startDate, endDate time.Time, limit, offset int) ([]ShiftWithUserInfo, error) {
 	rows, err := db.Query(`
-		SELECT s.id, s.user_id, s.company_id, s.clock_in, s.clock_out, s.status, s.notes,
+		SELECT s.id, s.user_id, s.company_id, s.clock_in, s.clock_out, s.status,
+		       COALESCE(s.notes, '') as notes,
 		       s.created_at, s.updated_at, u.username, u.full_name, u.role
 		FROM shifts s
 		JOIN users u ON s.user_id = u.id
@@ -193,6 +194,10 @@ func GetCompanyShifts(db *sql.DB, companyID int, startDate, endDate time.Time, l
 			return nil, err
 		}
 		shifts = append(shifts, shift)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return shifts, nil
@@ -322,7 +327,7 @@ func AssignShift(db *sql.DB, companyID, userID int, clockIn, clockOut time.Time)
 		CompanyID: companyID,
 		ClockIn:   clockIn,
 		ClockOut:  &clockOut,
-		Status:    "completed", // Pre-assigned shifts are marked as completed
+		Status:    "assigned", // Manager-assigned shifts (planned, not yet worked)
 	}
 
 	err := db.QueryRow(`

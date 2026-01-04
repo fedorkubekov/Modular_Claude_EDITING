@@ -43,7 +43,7 @@ export interface Shift {
   company_id: number;
   clock_in: string;
   clock_out?: string | null;
-  status: 'in_progress' | 'completed' | 'cancelled';
+  status: 'assigned' | 'in_progress' | 'completed' | 'cancelled';
   notes?: string;
   created_at: string;
   updated_at: string;

@@ -64,16 +64,32 @@ export const WeeklyCalendar = ({
       const endPosition = endHour * 60 + endMinute;
       const height = endPosition - top;
 
-      // Determine color
+      // Determine color based on shift status and user role
       let color = '';
       if (isManager) {
-        // Manager view: green for completed, blue for assigned
-        color = shift.status === 'completed' ? 'bg-green-500' : 'bg-blue-500';
+        // Manager view:
+        // - Green: completed (employee clocked in/out)
+        // - Blue: assigned (planned shift, not yet worked)
+        if (shift.status === 'completed') {
+          color = 'bg-green-500';
+        } else if (shift.status === 'assigned') {
+          color = 'bg-blue-500';
+        } else {
+          color = 'bg-gray-400'; // in_progress or other statuses
+        }
       } else {
         // Employee view
         if (shift.user_id === currentUserId) {
-          color = shift.status === 'completed' ? 'bg-green-500' : 'bg-blue-500';
+          // Own shifts: green for completed, blue for assigned
+          if (shift.status === 'completed') {
+            color = 'bg-green-500';
+          } else if (shift.status === 'assigned') {
+            color = 'bg-blue-500';
+          } else {
+            color = 'bg-gray-400'; // in_progress or other statuses
+          }
         } else {
+          // Other employees' shifts: always yellow
           color = 'bg-yellow-400';
         }
       }
@@ -247,18 +263,18 @@ export const WeeklyCalendar = ({
         <div className="flex gap-6 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-green-500 rounded"></div>
-            <span className="text-gray-700">Completed Shifts</span>
+            <span className="text-gray-700">Completed (Clocked In/Out)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-blue-500 rounded"></div>
             <span className="text-gray-700">
-              {isManager ? 'Assigned Shifts' : 'Your Assigned Shifts'}
+              {isManager ? 'Assigned (Planned)' : 'Your Assigned (Planned)'}
             </span>
           </div>
           {!isManager && (
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-yellow-400 rounded"></div>
-              <span className="text-gray-700">Other Employees</span>
+              <span className="text-gray-700">Other Employees' Shifts</span>
             </div>
           )}
         </div>
