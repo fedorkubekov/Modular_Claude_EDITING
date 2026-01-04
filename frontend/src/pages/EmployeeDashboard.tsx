@@ -19,6 +19,24 @@ export const EmployeeDashboard = () => {
   useEffect(() => {
     loadActiveShift();
     loadShiftHistory();
+
+    // Reload active shift when page becomes visible (after sleep/tab switch)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible - reload to sync state
+        loadActiveShift();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Also reload on window focus (backup for some browsers)
+    window.addEventListener('focus', loadActiveShift);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', loadActiveShift);
+    };
   }, []);
 
   const loadActiveShift = async () => {
@@ -96,7 +114,21 @@ export const EmployeeDashboard = () => {
       )}
 
       {/* Active Shift Card */}
-      <Card title="Current Shift">
+      <Card
+        title="Current Shift"
+        action={
+          <button
+            onClick={loadActiveShift}
+            className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+            title="Refresh shift status"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+        }
+      >
         {activeShift ? (
           <div className="space-y-4">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
