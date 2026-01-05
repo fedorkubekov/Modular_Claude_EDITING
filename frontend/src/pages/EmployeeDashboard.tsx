@@ -43,8 +43,10 @@ export const EmployeeDashboard = () => {
     try {
       const response = await api.getActiveShift();
       setActiveShift(response.shift);
+      setError(''); // Clear any previous errors
     } catch (err) {
       console.error('Failed to load active shift:', err);
+      setError('Failed to load active shift: ' + api.getErrorMessage(err));
     }
   };
 
@@ -54,6 +56,7 @@ export const EmployeeDashboard = () => {
       setShifts(response.shifts || []);
     } catch (err) {
       console.error('Failed to load shift history:', err);
+      setError('Failed to load shift history: ' + api.getErrorMessage(err));
     }
   };
 

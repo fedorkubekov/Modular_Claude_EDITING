@@ -113,7 +113,8 @@ func EndShift(db *sql.DB, userID int, notes string) (*Shift, error) {
 // GetUserShifts retrieves all shifts for a specific user
 func GetUserShifts(db *sql.DB, userID int, limit, offset int) ([]Shift, error) {
 	rows, err := db.Query(`
-		SELECT id, user_id, company_id, clock_in, clock_out, status, notes, created_at, updated_at
+		SELECT id, user_id, company_id, clock_in, clock_out, status,
+		       COALESCE(notes, '') as notes, created_at, updated_at
 		FROM shifts
 		WHERE user_id = $1
 		ORDER BY clock_in DESC
@@ -138,20 +139,27 @@ func GetUserShifts(db *sql.DB, userID int, limit, offset int) ([]Shift, error) {
 		shifts = append(shifts, shift)
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return shifts, nil
 }
 
 // GetActiveShift retrieves the active shift for a user
 func GetActiveShift(db *sql.DB, userID int) (*Shift, error) {
 	shift := &Shift{}
+	var notes sql.NullString // Handle NULL notes
+
 	err := db.QueryRow(`
-		SELECT id, user_id, company_id, clock_in, clock_out, status, notes, created_at, updated_at
+		SELECT id, user_id, company_id, clock_in, clock_out, status,
+		       COALESCE(notes, '') as notes, created_at, updated_at
 		FROM shifts
 		WHERE user_id = $1 AND status = 'in_progress'
 		LIMIT 1
 	`, userID).Scan(
 		&shift.ID, &shift.UserID, &shift.CompanyID, &shift.ClockIn, &shift.ClockOut,
-		&shift.Status, &shift.Notes, &shift.CreatedAt, &shift.UpdatedAt,
+		&shift.Status, &notes, &shift.CreatedAt, &shift.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -160,6 +168,9 @@ func GetActiveShift(db *sql.DB, userID int) (*Shift, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Convert sql.NullString to string
+	shift.Notes = notes.String
 
 	return shift, nil
 }
