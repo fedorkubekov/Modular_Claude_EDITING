@@ -84,6 +84,22 @@ export interface ShiftsWithUserInfoResponse {
   end_date: string;
 }
 
+// Shift Filters
+export interface ShiftFilters {
+  userIds?: number[];          // Filter by employee IDs (manager only)
+  roles?: string[];             // Filter by user roles
+  statuses?: string[];          // Filter by shift statuses
+  notesSearch?: string;         // Search in notes field
+  clockInFrom?: string;         // Clock in start time (ISO string)
+  clockInTo?: string;           // Clock in end time (ISO string)
+  clockOutFrom?: string;        // Clock out start time (ISO string)
+  clockOutTo?: string;          // Clock out end time (ISO string)
+  durationMinHours?: number;    // Minimum duration hours (0-23)
+  durationMinMins?: number;     // Minimum duration minutes (0-59)
+  durationMaxHours?: number;    // Maximum duration hours (0-23)
+  durationMaxMins?: number;     // Maximum duration minutes (0-59)
+}
+
 export interface ReportResponse {
   report: ShiftReport;
   start_date: string;

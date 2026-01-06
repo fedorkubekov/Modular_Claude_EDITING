@@ -16,12 +16,59 @@ import type {
   AssignShiftRequest,
   UpdateShiftRequest,
   WeekShiftsResponse,
+  ShiftFilters,
 } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 class ApiService {
   private client: AxiosInstance;
+
+  // Helper function to convert ShiftFilters to query parameters
+  private buildFilterParams(filters?: ShiftFilters): Record<string, any> {
+    if (!filters) return {};
+
+    const params: Record<string, any> = {};
+
+    if (filters.userIds && filters.userIds.length > 0) {
+      params.user_ids = filters.userIds.join(',');
+    }
+    if (filters.roles && filters.roles.length > 0) {
+      params.roles = filters.roles.join(',');
+    }
+    if (filters.statuses && filters.statuses.length > 0) {
+      params.statuses = filters.statuses.join(',');
+    }
+    if (filters.notesSearch) {
+      params.notes_search = filters.notesSearch;
+    }
+    if (filters.clockInFrom) {
+      params.clock_in_from = filters.clockInFrom;
+    }
+    if (filters.clockInTo) {
+      params.clock_in_to = filters.clockInTo;
+    }
+    if (filters.clockOutFrom) {
+      params.clock_out_from = filters.clockOutFrom;
+    }
+    if (filters.clockOutTo) {
+      params.clock_out_to = filters.clockOutTo;
+    }
+    if (filters.durationMinHours !== undefined) {
+      params.duration_min_hours = filters.durationMinHours;
+    }
+    if (filters.durationMinMins !== undefined) {
+      params.duration_min_mins = filters.durationMinMins;
+    }
+    if (filters.durationMaxHours !== undefined) {
+      params.duration_max_hours = filters.durationMaxHours;
+    }
+    if (filters.durationMaxMins !== undefined) {
+      params.duration_max_mins = filters.durationMaxMins;
+    }
+
+    return params;
+  }
 
   constructor() {
     this.client = axios.create({
@@ -86,9 +133,10 @@ class ApiService {
     return response.data;
   }
 
-  async getMyShifts(limit = 50, offset = 0): Promise<ShiftsResponse> {
+  async getMyShifts(limit = 50, offset = 0, filters?: ShiftFilters): Promise<ShiftsResponse> {
+    const filterParams = this.buildFilterParams(filters);
     const response = await this.client.get<ShiftsResponse>('/api/attendance/my-shifts', {
-      params: { limit, offset },
+      params: { limit, offset, ...filterParams },
     });
     return response.data;
   }
@@ -103,10 +151,12 @@ class ApiService {
     startDate?: string,
     endDate?: string,
     limit = 100,
-    offset = 0
+    offset = 0,
+    filters?: ShiftFilters
   ): Promise<ShiftsWithUserInfoResponse> {
+    const filterParams = this.buildFilterParams(filters);
     const response = await this.client.get<ShiftsWithUserInfoResponse>('/api/attendance/shifts', {
-      params: { start_date: startDate, end_date: endDate, limit, offset },
+      params: { start_date: startDate, end_date: endDate, limit, offset, ...filterParams },
     });
     return response.data;
   }
