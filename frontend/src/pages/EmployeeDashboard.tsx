@@ -4,8 +4,13 @@ import { api } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
-import type { Shift } from '@/types';
+import type { Shift, ShiftFilters } from '@/types';
 import { formatDateTime, formatTime, calculateDuration } from '@/utils/format';
+import { FilterableTableHeader } from '@/components/filters/FilterableTableHeader';
+import { DateRangeFilter } from '@/components/filters/DateRangeFilter';
+import { TimeRangeFilter } from '@/components/filters/TimeRangeFilter';
+import { DurationFilter } from '@/components/filters/DurationFilter';
+import { CheckboxFilter } from '@/components/filters/CheckboxFilter';
 
 export const EmployeeDashboard = () => {
   const { user } = useAuth();
@@ -15,6 +20,21 @@ export const EmployeeDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Filter state
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [clockInFrom, setClockInFrom] = useState('');
+  const [clockInTo, setClockInTo] = useState('');
+  const [clockOutFrom, setClockOutFrom] = useState('');
+  const [clockOutTo, setClockOutTo] = useState('');
+  const [durationMinHours, setDurationMinHours] = useState(0);
+  const [durationMinMins, setDurationMinMins] = useState(0);
+  const [durationMaxHours, setDurationMaxHours] = useState(23);
+  const [durationMaxMins, setDurationMaxMins] = useState(59);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+
+  const statusOptions = ['assigned', 'in_progress', 'completed'];
 
   useEffect(() => {
     loadActiveShift();
@@ -39,6 +59,23 @@ export const EmployeeDashboard = () => {
     };
   }, []);
 
+  // Reload shifts when filters change
+  useEffect(() => {
+    loadShiftHistory();
+  }, [
+    dateFrom,
+    dateTo,
+    clockInFrom,
+    clockInTo,
+    clockOutFrom,
+    clockOutTo,
+    durationMinHours,
+    durationMinMins,
+    durationMaxHours,
+    durationMaxMins,
+    selectedStatuses,
+  ]);
+
   const loadActiveShift = async () => {
     try {
       const response = await api.getActiveShift();
@@ -52,12 +89,94 @@ export const EmployeeDashboard = () => {
 
   const loadShiftHistory = async () => {
     try {
-      const response = await api.getMyShifts(10, 0);
+      const filters: ShiftFilters = {};
+
+      // Build filters object
+      if (selectedStatuses.length > 0) {
+        filters.statuses = selectedStatuses;
+      }
+
+      // Date filters - combine date and time
+      if (dateFrom) {
+        const fromDateTime = clockInFrom
+          ? `${dateFrom}T${clockInFrom}:00Z`
+          : `${dateFrom}T00:00:00Z`;
+        filters.clockInFrom = fromDateTime;
+      }
+      if (dateTo) {
+        const toDateTime = clockInTo
+          ? `${dateTo}T${clockInTo}:00Z`
+          : `${dateTo}T23:59:59Z`;
+        filters.clockInTo = toDateTime;
+      } else if (dateFrom && !dateTo) {
+        // Single day filter
+        const toDateTime = clockInTo
+          ? `${dateFrom}T${clockInTo}:00Z`
+          : `${dateFrom}T23:59:59Z`;
+        filters.clockInTo = toDateTime;
+      }
+
+      // Clock out filters
+      if (clockOutFrom) {
+        const fromDate = dateFrom || new Date().toISOString().split('T')[0];
+        filters.clockOutFrom = `${fromDate}T${clockOutFrom}:00Z`;
+      }
+      if (clockOutTo) {
+        const toDate = dateTo || dateFrom || new Date().toISOString().split('T')[0];
+        filters.clockOutTo = `${toDate}T${clockOutTo}:00Z`;
+      }
+
+      // Duration filters (only if not default values)
+      if (durationMinHours > 0 || durationMinMins > 0) {
+        filters.durationMinHours = durationMinHours;
+        filters.durationMinMins = durationMinMins;
+      }
+      if (durationMaxHours < 23 || durationMaxMins < 59) {
+        filters.durationMaxHours = durationMaxHours;
+        filters.durationMaxMins = durationMaxMins;
+      }
+
+      const response = await api.getMyShifts(50, 0, filters);
       setShifts(response.shifts || []);
     } catch (err) {
       console.error('Failed to load shift history:', err);
       setError('Failed to load shift history: ' + api.getErrorMessage(err));
     }
+  };
+
+  // Check if filters are active
+  const isDateFilterActive = dateFrom !== '';
+  const isClockInFilterActive = clockInFrom !== '' || clockInTo !== '';
+  const isClockOutFilterActive = clockOutFrom !== '' || clockOutTo !== '';
+  const isDurationFilterActive = durationMinHours > 0 || durationMinMins > 0 ||
+                                   durationMaxHours < 23 || durationMaxMins < 59;
+  const isStatusFilterActive = selectedStatuses.length > 0;
+
+  // Clear filter functions
+  const clearDateFilter = () => {
+    setDateFrom('');
+    setDateTo('');
+  };
+
+  const clearClockInFilter = () => {
+    setClockInFrom('');
+    setClockInTo('');
+  };
+
+  const clearClockOutFilter = () => {
+    setClockOutFrom('');
+    setClockOutTo('');
+  };
+
+  const clearDurationFilter = () => {
+    setDurationMinHours(0);
+    setDurationMinMins(0);
+    setDurationMaxHours(23);
+    setDurationMaxMins(59);
+  };
+
+  const clearStatusFilter = () => {
+    setSelectedStatuses([]);
   };
 
   const handleClockIn = async () => {
@@ -194,21 +313,79 @@ export const EmployeeDashboard = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Date
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Clock In
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Clock Out
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Duration
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Status
-                  </th>
+                  <FilterableTableHeader
+                    label="Date"
+                    isActive={isDateFilterActive}
+                    onClear={clearDateFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <DateRangeFilter
+                      fromDate={dateFrom}
+                      toDate={dateTo}
+                      onFromChange={setDateFrom}
+                      onToChange={setDateTo}
+                      allowSingleDate={true}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Clock In"
+                    isActive={isClockInFilterActive}
+                    onClear={clearClockInFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <TimeRangeFilter
+                      fromTime={clockInFrom}
+                      toTime={clockInTo}
+                      onFromChange={setClockInFrom}
+                      onToChange={setClockInTo}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Clock Out"
+                    isActive={isClockOutFilterActive}
+                    onClear={clearClockOutFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <TimeRangeFilter
+                      fromTime={clockOutFrom}
+                      toTime={clockOutTo}
+                      onFromChange={setClockOutFrom}
+                      onToChange={setClockOutTo}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Duration"
+                    isActive={isDurationFilterActive}
+                    onClear={clearDurationFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <DurationFilter
+                      minHours={durationMinHours}
+                      minMinutes={durationMinMins}
+                      maxHours={durationMaxHours}
+                      maxMinutes={durationMaxMins}
+                      onMinHoursChange={setDurationMinHours}
+                      onMinMinutesChange={setDurationMinMins}
+                      onMaxHoursChange={setDurationMaxHours}
+                      onMaxMinutesChange={setDurationMaxMins}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Status"
+                    isActive={isStatusFilterActive}
+                    onClear={clearStatusFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <CheckboxFilter
+                      options={statusOptions}
+                      selectedValues={selectedStatuses}
+                      onChange={setSelectedStatuses}
+                    />
+                  </FilterableTableHeader>
                 </tr>
               </thead>
               <tbody>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/services/api';
 import { Card } from '@/components/ui/Card';
@@ -7,9 +7,16 @@ import { Button } from '@/components/ui/Button';
 import { EmployeeList } from '@/components/EmployeeList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { ShiftModal } from '@/components/ShiftModal';
-import type { ShiftWithUserInfo, EmployeeWithStats } from '@/types';
+import type { ShiftWithUserInfo, EmployeeWithStats, ShiftFilters } from '@/types';
 import { formatDateTime, formatTime, calculateDuration } from '@/utils/format';
 import { format, subDays, startOfWeek, addWeeks } from 'date-fns';
+import { FilterableTableHeader } from '@/components/filters/FilterableTableHeader';
+import { MultiSelectFilter } from '@/components/filters/MultiSelectFilter';
+import { CheckboxFilter } from '@/components/filters/CheckboxFilter';
+import { DateRangeFilter } from '@/components/filters/DateRangeFilter';
+import { TimeRangeFilter } from '@/components/filters/TimeRangeFilter';
+import { DurationFilter } from '@/components/filters/DurationFilter';
+import { TextSearchFilter } from '@/components/filters/TextSearchFilter';
 
 export const EmployeeManagement = () => {
   const { user } = useAuth();
@@ -31,6 +38,33 @@ export const EmployeeManagement = () => {
   const [modalInitialMinute, setModalInitialMinute] = useState<number>(0);
   const [selectedShift, setSelectedShift] = useState<ShiftWithUserInfo | undefined>();
 
+  // Filter state
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [clockInFrom, setClockInFrom] = useState('');
+  const [clockInTo, setClockInTo] = useState('');
+  const [clockOutFrom, setClockOutFrom] = useState('');
+  const [clockOutTo, setClockOutTo] = useState('');
+  const [durationMinHours, setDurationMinHours] = useState(0);
+  const [durationMinMins, setDurationMinMins] = useState(0);
+  const [durationMaxHours, setDurationMaxHours] = useState(23);
+  const [durationMaxMins, setDurationMaxMins] = useState(59);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [notesSearch, setNotesSearch] = useState('');
+
+  const roleOptions = ['employee', 'manager', 'admin'];
+  const statusOptions = ['assigned', 'in_progress', 'completed'];
+
+  // Prepare employee options for multi-select filter
+  const employeeOptions = useMemo(() => {
+    return employees.map((emp) => ({
+      id: emp.id,
+      label: `${emp.full_name} (@${emp.username})`,
+    }));
+  }, [employees]);
+
   useEffect(() => {
     loadShifts();
     loadEmployees();
@@ -45,7 +79,69 @@ export const EmployeeManagement = () => {
     setError('');
 
     try {
-      const response = await api.getAllShifts(startDate, endDate);
+      const filters: ShiftFilters = {};
+
+      // Employee filter
+      if (selectedEmployeeIds.length > 0) {
+        filters.userIds = selectedEmployeeIds;
+      }
+
+      // Role filter
+      if (selectedRoles.length > 0) {
+        filters.roles = selectedRoles;
+      }
+
+      // Status filter
+      if (selectedStatuses.length > 0) {
+        filters.statuses = selectedStatuses;
+      }
+
+      // Notes search
+      if (notesSearch.trim()) {
+        filters.notesSearch = notesSearch.trim();
+      }
+
+      // Date filters - combine date and time
+      if (dateFrom) {
+        const fromDateTime = clockInFrom
+          ? `${dateFrom}T${clockInFrom}:00Z`
+          : `${dateFrom}T00:00:00Z`;
+        filters.clockInFrom = fromDateTime;
+      }
+      if (dateTo) {
+        const toDateTime = clockInTo
+          ? `${dateTo}T${clockInTo}:00Z`
+          : `${dateTo}T23:59:59Z`;
+        filters.clockInTo = toDateTime;
+      } else if (dateFrom && !dateTo) {
+        // Single day filter
+        const toDateTime = clockInTo
+          ? `${dateFrom}T${clockInTo}:00Z`
+          : `${dateFrom}T23:59:59Z`;
+        filters.clockInTo = toDateTime;
+      }
+
+      // Clock out filters
+      if (clockOutFrom) {
+        const fromDate = dateFrom || startDate;
+        filters.clockOutFrom = `${fromDate}T${clockOutFrom}:00Z`;
+      }
+      if (clockOutTo) {
+        const toDate = dateTo || dateFrom || endDate;
+        filters.clockOutTo = `${toDate}T${clockOutTo}:00Z`;
+      }
+
+      // Duration filters (only if not default values)
+      if (durationMinHours > 0 || durationMinMins > 0) {
+        filters.durationMinHours = durationMinHours;
+        filters.durationMinMins = durationMinMins;
+      }
+      if (durationMaxHours < 23 || durationMaxMins < 59) {
+        filters.durationMaxHours = durationMaxHours;
+        filters.durationMaxMins = durationMaxMins;
+      }
+
+      const response = await api.getAllShifts(startDate, endDate, 100, 0, filters);
       setShifts(response.shifts || []);
     } catch (err) {
       setError(api.getErrorMessage(err));
@@ -76,6 +172,61 @@ export const EmployeeManagement = () => {
   const handleFilterChange = () => {
     loadShifts();
   };
+
+  // Reload shifts when filters change
+  useEffect(() => {
+    loadShifts();
+  }, [
+    selectedEmployeeIds,
+    selectedRoles,
+    dateFrom,
+    dateTo,
+    clockInFrom,
+    clockInTo,
+    clockOutFrom,
+    clockOutTo,
+    durationMinHours,
+    durationMinMins,
+    durationMaxHours,
+    durationMaxMins,
+    selectedStatuses,
+    notesSearch,
+  ]);
+
+  // Check if filters are active
+  const isEmployeeFilterActive = selectedEmployeeIds.length > 0;
+  const isRoleFilterActive = selectedRoles.length > 0;
+  const isDateFilterActive = dateFrom !== '';
+  const isClockInFilterActive = clockInFrom !== '' || clockInTo !== '';
+  const isClockOutFilterActive = clockOutFrom !== '' || clockOutTo !== '';
+  const isDurationFilterActive = durationMinHours > 0 || durationMinMins > 0 ||
+                                   durationMaxHours < 23 || durationMaxMins < 59;
+  const isStatusFilterActive = selectedStatuses.length > 0;
+  const isNotesFilterActive = notesSearch.trim() !== '';
+
+  // Clear filter functions
+  const clearEmployeeFilter = () => setSelectedEmployeeIds([]);
+  const clearRoleFilter = () => setSelectedRoles([]);
+  const clearDateFilter = () => {
+    setDateFrom('');
+    setDateTo('');
+  };
+  const clearClockInFilter = () => {
+    setClockInFrom('');
+    setClockInTo('');
+  };
+  const clearClockOutFilter = () => {
+    setClockOutFrom('');
+    setClockOutTo('');
+  };
+  const clearDurationFilter = () => {
+    setDurationMinHours(0);
+    setDurationMinMins(0);
+    setDurationMaxHours(23);
+    setDurationMaxMins(59);
+  };
+  const clearStatusFilter = () => setSelectedStatuses([]);
+  const clearNotesFilter = () => setNotesSearch('');
 
   const handlePreviousWeek = () => {
     setCurrentWeekStart((prev) => addWeeks(prev, -1));
@@ -217,30 +368,119 @@ export const EmployeeManagement = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Employee
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Role
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Date
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Clock In
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Clock Out
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Duration
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">
-                    Notes
-                  </th>
+                  <FilterableTableHeader
+                    label="Employee"
+                    isActive={isEmployeeFilterActive}
+                    onClear={clearEmployeeFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <MultiSelectFilter
+                      options={employeeOptions}
+                      selectedIds={selectedEmployeeIds}
+                      onChange={setSelectedEmployeeIds}
+                      searchPlaceholder="Search employees..."
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Role"
+                    isActive={isRoleFilterActive}
+                    onClear={clearRoleFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <CheckboxFilter
+                      options={roleOptions}
+                      selectedValues={selectedRoles}
+                      onChange={setSelectedRoles}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Date"
+                    isActive={isDateFilterActive}
+                    onClear={clearDateFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <DateRangeFilter
+                      fromDate={dateFrom}
+                      toDate={dateTo}
+                      onFromChange={setDateFrom}
+                      onToChange={setDateTo}
+                      allowSingleDate={true}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Clock In"
+                    isActive={isClockInFilterActive}
+                    onClear={clearClockInFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <TimeRangeFilter
+                      fromTime={clockInFrom}
+                      toTime={clockInTo}
+                      onFromChange={setClockInFrom}
+                      onToChange={setClockInTo}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Clock Out"
+                    isActive={isClockOutFilterActive}
+                    onClear={clearClockOutFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <TimeRangeFilter
+                      fromTime={clockOutFrom}
+                      toTime={clockOutTo}
+                      onFromChange={setClockOutFrom}
+                      onToChange={setClockOutTo}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Duration"
+                    isActive={isDurationFilterActive}
+                    onClear={clearDurationFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <DurationFilter
+                      minHours={durationMinHours}
+                      minMinutes={durationMinMins}
+                      maxHours={durationMaxHours}
+                      maxMinutes={durationMaxMins}
+                      onMinHoursChange={setDurationMinHours}
+                      onMinMinutesChange={setDurationMinMins}
+                      onMaxHoursChange={setDurationMaxHours}
+                      onMaxMinutesChange={setDurationMaxMins}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Status"
+                    isActive={isStatusFilterActive}
+                    onClear={clearStatusFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <CheckboxFilter
+                      options={statusOptions}
+                      selectedValues={selectedStatuses}
+                      onChange={setSelectedStatuses}
+                    />
+                  </FilterableTableHeader>
+
+                  <FilterableTableHeader
+                    label="Notes"
+                    isActive={isNotesFilterActive}
+                    onClear={clearNotesFilter}
+                    className="text-sm font-semibold text-gray-700"
+                  >
+                    <TextSearchFilter
+                      value={notesSearch}
+                      onChange={setNotesSearch}
+                      placeholder="Search in notes..."
+                    />
+                  </FilterableTableHeader>
                 </tr>
               </thead>
               <tbody>
