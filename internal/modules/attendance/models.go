@@ -3,7 +3,10 @@ package attendance
 import (
 	"database/sql"
 	"errors"
+	"strconv"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // Shift represents a work shift
@@ -47,6 +50,22 @@ type EmployeeWithStats struct {
 	ShiftType        string  `json:"shift_type"`
 	MonthlyHours     float64 `json:"monthly_hours"`
 	IsActive         bool    `json:"is_active"`
+}
+
+// ShiftFilters represents filter parameters for shift queries
+type ShiftFilters struct {
+	UserIDs          []int      // Filter by specific user IDs
+	Roles            []string   // Filter by user roles
+	Statuses         []string   // Filter by shift statuses
+	NotesSearch      string     // Search in notes field
+	ClockInFrom      *time.Time // Clock in time range start
+	ClockInTo        *time.Time // Clock in time range end
+	ClockOutFrom     *time.Time // Clock out time range start
+	ClockOutTo       *time.Time // Clock out time range end
+	DurationMinHours int        // Minimum duration in hours
+	DurationMinMins  int        // Minimum duration in minutes
+	DurationMaxHours int        // Maximum duration in hours
+	DurationMaxMins  int        // Maximum duration in minutes
 }
 
 // CreateShift creates a new shift record
@@ -110,17 +129,84 @@ func EndShift(db *sql.DB, userID int, notes string) (*Shift, error) {
 	return shift, nil
 }
 
-// GetUserShifts retrieves all shifts for a specific user
-func GetUserShifts(db *sql.DB, userID int, limit, offset int) ([]Shift, error) {
-	rows, err := db.Query(`
+// GetUserShifts retrieves all shifts for a specific user with optional filters
+func GetUserShifts(db *sql.DB, userID int, filters *ShiftFilters, limit, offset int) ([]Shift, error) {
+	// Build base query
+	query := `
 		SELECT id, user_id, company_id, clock_in, clock_out, status,
-		       COALESCE(notes, '') as notes, created_at, updated_at
+		       COALESCE(notes, '') as notes, created_at, updated_at,
+		       EXTRACT(EPOCH FROM (COALESCE(clock_out, CURRENT_TIMESTAMP) - clock_in)) / 3600 as duration_hours
 		FROM shifts
-		WHERE user_id = $1
-		ORDER BY clock_in DESC
-		LIMIT $2 OFFSET $3
-	`, userID, limit, offset)
+		WHERE user_id = $1`
 
+	args := []interface{}{userID}
+	paramCount := 1
+
+	// Apply filters
+	if filters != nil {
+		// Filter by statuses
+		if len(filters.Statuses) > 0 {
+			paramCount++
+			query += ` AND status = ANY($` + strconv.Itoa(paramCount) + `)`
+			args = append(args, pq.Array(filters.Statuses))
+		}
+
+		// Filter by notes search
+		if filters.NotesSearch != "" {
+			paramCount++
+			query += ` AND LOWER(notes) LIKE LOWER($` + strconv.Itoa(paramCount) + `)`
+			args = append(args, "%"+filters.NotesSearch+"%")
+		}
+
+		// Filter by clock_in time range
+		if filters.ClockInFrom != nil {
+			paramCount++
+			query += ` AND clock_in >= $` + strconv.Itoa(paramCount)
+			args = append(args, filters.ClockInFrom)
+		}
+		if filters.ClockInTo != nil {
+			paramCount++
+			query += ` AND clock_in <= $` + strconv.Itoa(paramCount)
+			args = append(args, filters.ClockInTo)
+		}
+
+		// Filter by clock_out time range
+		if filters.ClockOutFrom != nil {
+			paramCount++
+			query += ` AND clock_out >= $` + strconv.Itoa(paramCount)
+			args = append(args, filters.ClockOutFrom)
+		}
+		if filters.ClockOutTo != nil {
+			paramCount++
+			query += ` AND clock_out <= $` + strconv.Itoa(paramCount)
+			args = append(args, filters.ClockOutTo)
+		}
+
+		// Filter by duration
+		if filters.DurationMinHours > 0 || filters.DurationMinMins > 0 {
+			minSeconds := (filters.DurationMinHours * 3600) + (filters.DurationMinMins * 60)
+			paramCount++
+			query += ` AND EXTRACT(EPOCH FROM (COALESCE(clock_out, CURRENT_TIMESTAMP) - clock_in)) >= $` + strconv.Itoa(paramCount)
+			args = append(args, minSeconds)
+		}
+		if filters.DurationMaxHours > 0 || filters.DurationMaxMins > 0 {
+			maxSeconds := (filters.DurationMaxHours * 3600) + (filters.DurationMaxMins * 60)
+			paramCount++
+			query += ` AND EXTRACT(EPOCH FROM (COALESCE(clock_out, CURRENT_TIMESTAMP) - clock_in)) <= $` + strconv.Itoa(paramCount)
+			args = append(args, maxSeconds)
+		}
+	}
+
+	// Add ordering and pagination
+	query += ` ORDER BY clock_in DESC`
+	paramCount++
+	query += ` LIMIT $` + strconv.Itoa(paramCount)
+	args = append(args, limit)
+	paramCount++
+	query += ` OFFSET $` + strconv.Itoa(paramCount)
+	args = append(args, offset)
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,9 +215,10 @@ func GetUserShifts(db *sql.DB, userID int, limit, offset int) ([]Shift, error) {
 	var shifts []Shift
 	for rows.Next() {
 		var shift Shift
+		var durationHours float64 // Temporary variable
 		err := rows.Scan(
 			&shift.ID, &shift.UserID, &shift.CompanyID, &shift.ClockIn, &shift.ClockOut,
-			&shift.Status, &shift.Notes, &shift.CreatedAt, &shift.UpdatedAt,
+			&shift.Status, &shift.Notes, &shift.CreatedAt, &shift.UpdatedAt, &durationHours,
 		)
 		if err != nil {
 			return nil, err
@@ -175,19 +262,100 @@ func GetActiveShift(db *sql.DB, userID int) (*Shift, error) {
 	return shift, nil
 }
 
-// GetCompanyShifts retrieves all shifts for a company with user info
-func GetCompanyShifts(db *sql.DB, companyID int, startDate, endDate time.Time, limit, offset int) ([]ShiftWithUserInfo, error) {
-	rows, err := db.Query(`
+// GetCompanyShifts retrieves all shifts for a company with user info and optional filters
+func GetCompanyShifts(db *sql.DB, companyID int, startDate, endDate time.Time, filters *ShiftFilters, limit, offset int) ([]ShiftWithUserInfo, error) {
+	// Build base query
+	query := `
 		SELECT s.id, s.user_id, s.company_id, s.clock_in, s.clock_out, s.status,
 		       COALESCE(s.notes, '') as notes,
-		       s.created_at, s.updated_at, u.username, u.full_name, u.role
+		       s.created_at, s.updated_at, u.username, u.full_name, u.role,
+		       EXTRACT(EPOCH FROM (COALESCE(s.clock_out, CURRENT_TIMESTAMP) - s.clock_in)) / 3600 as duration_hours
 		FROM shifts s
 		JOIN users u ON s.user_id = u.id
-		WHERE s.company_id = $1 AND s.clock_in >= $2 AND s.clock_in <= $3
-		ORDER BY s.clock_in DESC
-		LIMIT $4 OFFSET $5
-	`, companyID, startDate, endDate, limit, offset)
+		WHERE s.company_id = $1 AND s.clock_in >= $2 AND s.clock_in <= $3`
 
+	args := []interface{}{companyID, startDate, endDate}
+	paramCount := 3
+
+	// Apply filters
+	if filters != nil {
+		// Filter by user IDs
+		if len(filters.UserIDs) > 0 {
+			paramCount++
+			query += ` AND s.user_id = ANY($` + strconv.Itoa(paramCount) + `)`
+			args = append(args, pq.Array(filters.UserIDs))
+		}
+
+		// Filter by roles
+		if len(filters.Roles) > 0 {
+			paramCount++
+			query += ` AND u.role = ANY($` + strconv.Itoa(paramCount) + `)`
+			args = append(args, pq.Array(filters.Roles))
+		}
+
+		// Filter by statuses
+		if len(filters.Statuses) > 0 {
+			paramCount++
+			query += ` AND s.status = ANY($` + strconv.Itoa(paramCount) + `)`
+			args = append(args, pq.Array(filters.Statuses))
+		}
+
+		// Filter by notes search
+		if filters.NotesSearch != "" {
+			paramCount++
+			query += ` AND LOWER(s.notes) LIKE LOWER($` + strconv.Itoa(paramCount) + `)`
+			args = append(args, "%"+filters.NotesSearch+"%")
+		}
+
+		// Filter by clock_in time range
+		if filters.ClockInFrom != nil {
+			paramCount++
+			query += ` AND s.clock_in >= $` + strconv.Itoa(paramCount)
+			args = append(args, filters.ClockInFrom)
+		}
+		if filters.ClockInTo != nil {
+			paramCount++
+			query += ` AND s.clock_in <= $` + strconv.Itoa(paramCount)
+			args = append(args, filters.ClockInTo)
+		}
+
+		// Filter by clock_out time range
+		if filters.ClockOutFrom != nil {
+			paramCount++
+			query += ` AND s.clock_out >= $` + strconv.Itoa(paramCount)
+			args = append(args, filters.ClockOutFrom)
+		}
+		if filters.ClockOutTo != nil {
+			paramCount++
+			query += ` AND s.clock_out <= $` + strconv.Itoa(paramCount)
+			args = append(args, filters.ClockOutTo)
+		}
+
+		// Filter by duration
+		if filters.DurationMinHours > 0 || filters.DurationMinMins > 0 {
+			minSeconds := (filters.DurationMinHours * 3600) + (filters.DurationMinMins * 60)
+			paramCount++
+			query += ` AND EXTRACT(EPOCH FROM (COALESCE(s.clock_out, CURRENT_TIMESTAMP) - s.clock_in)) >= $` + strconv.Itoa(paramCount)
+			args = append(args, minSeconds)
+		}
+		if filters.DurationMaxHours > 0 || filters.DurationMaxMins > 0 {
+			maxSeconds := (filters.DurationMaxHours * 3600) + (filters.DurationMaxMins * 60)
+			paramCount++
+			query += ` AND EXTRACT(EPOCH FROM (COALESCE(s.clock_out, CURRENT_TIMESTAMP) - s.clock_in)) <= $` + strconv.Itoa(paramCount)
+			args = append(args, maxSeconds)
+		}
+	}
+
+	// Add ordering and pagination
+	query += ` ORDER BY s.clock_in DESC`
+	paramCount++
+	query += ` LIMIT $` + strconv.Itoa(paramCount)
+	args = append(args, limit)
+	paramCount++
+	query += ` OFFSET $` + strconv.Itoa(paramCount)
+	args = append(args, offset)
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -196,10 +364,11 @@ func GetCompanyShifts(db *sql.DB, companyID int, startDate, endDate time.Time, l
 	var shifts []ShiftWithUserInfo
 	for rows.Next() {
 		var shift ShiftWithUserInfo
+		var durationHours float64 // Temporary variable for duration calculation
 		err := rows.Scan(
 			&shift.ID, &shift.UserID, &shift.CompanyID, &shift.ClockIn, &shift.ClockOut,
 			&shift.Status, &shift.Notes, &shift.CreatedAt, &shift.UpdatedAt,
-			&shift.Username, &shift.FullName, &shift.Role,
+			&shift.Username, &shift.FullName, &shift.Role, &durationHours,
 		)
 		if err != nil {
 			return nil, err

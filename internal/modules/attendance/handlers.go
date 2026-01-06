@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"modular-erp/internal/core/middleware"
@@ -87,7 +88,10 @@ func (h *Handler) GetMyShifts(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
-	shifts, err := h.service.GetMyShifts(claims.UserID, limit, offset)
+	// Parse filters
+	filters := parseShiftFiltersFromRequest(r)
+
+	shifts, err := h.service.GetMyShifts(claims.UserID, filters, limit, offset)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve shifts")
 		return
@@ -154,7 +158,10 @@ func (h *Handler) GetAllShifts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	shifts, err := h.service.GetAllShifts(claims.CompanyID, startDate, endDate, limit, offset)
+	// Parse filters
+	filters := parseShiftFiltersFromRequest(r)
+
+	shifts, err := h.service.GetAllShifts(claims.CompanyID, startDate, endDate, filters, limit, offset)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve shifts")
 		return
@@ -452,6 +459,91 @@ func (h *Handler) DeleteShift(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "Shift deleted successfully",
 	})
+}
+
+// parseShiftFiltersFromRequest parses filter parameters from HTTP request
+func parseShiftFiltersFromRequest(r *http.Request) *ShiftFilters {
+	filters := &ShiftFilters{}
+	query := r.URL.Query()
+
+	// Parse user IDs (comma-separated)
+	if userIDsStr := query.Get("user_ids"); userIDsStr != "" {
+		ids := strings.Split(userIDsStr, ",")
+		for _, idStr := range ids {
+			if id, err := strconv.Atoi(strings.TrimSpace(idStr)); err == nil {
+				filters.UserIDs = append(filters.UserIDs, id)
+			}
+		}
+	}
+
+	// Parse roles (comma-separated)
+	if rolesStr := query.Get("roles"); rolesStr != "" {
+		filters.Roles = strings.Split(rolesStr, ",")
+		// Trim whitespace
+		for i := range filters.Roles {
+			filters.Roles[i] = strings.TrimSpace(filters.Roles[i])
+		}
+	}
+
+	// Parse statuses (comma-separated)
+	if statusesStr := query.Get("statuses"); statusesStr != "" {
+		filters.Statuses = strings.Split(statusesStr, ",")
+		// Trim whitespace
+		for i := range filters.Statuses {
+			filters.Statuses[i] = strings.TrimSpace(filters.Statuses[i])
+		}
+	}
+
+	// Parse notes search
+	filters.NotesSearch = query.Get("notes_search")
+
+	// Parse clock_in time range
+	if clockInFromStr := query.Get("clock_in_from"); clockInFromStr != "" {
+		if t, err := time.Parse(time.RFC3339, clockInFromStr); err == nil {
+			filters.ClockInFrom = &t
+		}
+	}
+	if clockInToStr := query.Get("clock_in_to"); clockInToStr != "" {
+		if t, err := time.Parse(time.RFC3339, clockInToStr); err == nil {
+			filters.ClockInTo = &t
+		}
+	}
+
+	// Parse clock_out time range
+	if clockOutFromStr := query.Get("clock_out_from"); clockOutFromStr != "" {
+		if t, err := time.Parse(time.RFC3339, clockOutFromStr); err == nil {
+			filters.ClockOutFrom = &t
+		}
+	}
+	if clockOutToStr := query.Get("clock_out_to"); clockOutToStr != "" {
+		if t, err := time.Parse(time.RFC3339, clockOutToStr); err == nil {
+			filters.ClockOutTo = &t
+		}
+	}
+
+	// Parse duration range
+	if minHoursStr := query.Get("duration_min_hours"); minHoursStr != "" {
+		if hours, err := strconv.Atoi(minHoursStr); err == nil {
+			filters.DurationMinHours = hours
+		}
+	}
+	if minMinsStr := query.Get("duration_min_mins"); minMinsStr != "" {
+		if mins, err := strconv.Atoi(minMinsStr); err == nil {
+			filters.DurationMinMins = mins
+		}
+	}
+	if maxHoursStr := query.Get("duration_max_hours"); maxHoursStr != "" {
+		if hours, err := strconv.Atoi(maxHoursStr); err == nil {
+			filters.DurationMaxHours = hours
+		}
+	}
+	if maxMinsStr := query.Get("duration_max_mins"); maxMinsStr != "" {
+		if mins, err := strconv.Atoi(maxMinsStr); err == nil {
+			filters.DurationMaxMins = mins
+		}
+	}
+
+	return filters
 }
 
 // Helper functions

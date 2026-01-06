@@ -25,12 +25,12 @@ func (s *Service) ClockOut(userID int, notes string) (*Shift, error) {
 	return EndShift(s.db, userID, notes)
 }
 
-// GetMyShifts retrieves shifts for a specific user
-func (s *Service) GetMyShifts(userID int, limit, offset int) ([]Shift, error) {
+// GetMyShifts retrieves shifts for a specific user with optional filters
+func (s *Service) GetMyShifts(userID int, filters *ShiftFilters, limit, offset int) ([]Shift, error) {
 	if limit == 0 {
 		limit = 50
 	}
-	return GetUserShifts(s.db, userID, limit, offset)
+	return GetUserShifts(s.db, userID, filters, limit, offset)
 }
 
 // GetMyActiveShift retrieves the active shift for a user
@@ -38,12 +38,12 @@ func (s *Service) GetMyActiveShift(userID int) (*Shift, error) {
 	return GetActiveShift(s.db, userID)
 }
 
-// GetAllShifts retrieves all shifts for a company (manager/admin only)
-func (s *Service) GetAllShifts(companyID int, startDate, endDate time.Time, limit, offset int) ([]ShiftWithUserInfo, error) {
+// GetAllShifts retrieves all shifts for a company with optional filters (manager/admin only)
+func (s *Service) GetAllShifts(companyID int, startDate, endDate time.Time, filters *ShiftFilters, limit, offset int) ([]ShiftWithUserInfo, error) {
 	if limit == 0 {
 		limit = 100
 	}
-	return GetCompanyShifts(s.db, companyID, startDate, endDate, limit, offset)
+	return GetCompanyShifts(s.db, companyID, startDate, endDate, filters, limit, offset)
 }
 
 // GetReport generates attendance statistics (manager/admin only)
