@@ -36,7 +36,8 @@ export const ShiftModal = ({
   isManager,
 }: ShiftModalProps) => {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [date, setDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,13 +54,16 @@ export const ShiftModal = ({
           ? new Date(existingShift.clock_out)
           : new Date();
 
-        setDate(format(clockInDate, 'yyyy-MM-dd'));
+        setStartDate(format(clockInDate, 'yyyy-MM-dd'));
+        setEndDate(format(clockOutDate, 'yyyy-MM-dd'));
         setStartTime(format(clockInDate, 'HH:mm'));
         setEndTime(format(clockOutDate, 'HH:mm'));
       } else if (initialDate) {
         // Creating new shift
         setSelectedUserId(employees[0]?.id || null);
-        setDate(format(initialDate, 'yyyy-MM-dd'));
+        const startDateStr = format(initialDate, 'yyyy-MM-dd');
+        setStartDate(startDateStr);
+
         const startHour = initialHour.toString().padStart(2, '0');
         const startMinuteStr = initialMinute.toString().padStart(2, '0');
         setStartTime(`${startHour}:${startMinuteStr}`);
@@ -68,6 +72,15 @@ export const ShiftModal = ({
         const endHourNum = (initialHour + 8) % 24;
         const endHour = endHourNum.toString().padStart(2, '0');
         setEndTime(`${endHour}:${startMinuteStr}`);
+
+        // If end hour wrapped around midnight, set end date to next day
+        if (endHourNum < initialHour) {
+          const nextDay = new Date(initialDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          setEndDate(format(nextDay, 'yyyy-MM-dd'));
+        } else {
+          setEndDate(startDateStr);
+        }
       }
       setError('');
     }
@@ -79,19 +92,17 @@ export const ShiftModal = ({
       return;
     }
 
-    if (!date || !startTime || !endTime) {
+    if (!startDate || !endDate || !startTime || !endTime) {
       setError('Please fill in all fields');
       return;
     }
 
-    // Validate end time is after start time
-    const [startHour, startMin] = startTime.split(':').map(Number);
-    const [endHour, endMin] = endTime.split(':').map(Number);
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
+    // Validate end datetime is after start datetime
+    const clockInDateTime = new Date(`${startDate}T${startTime}:00`);
+    const clockOutDateTime = new Date(`${endDate}T${endTime}:00`);
 
-    if (endMinutes <= startMinutes) {
-      setError('End time must be after start time');
+    if (clockOutDateTime <= clockInDateTime) {
+      setError('End date/time must be after start date/time');
       return;
     }
 
@@ -100,8 +111,8 @@ export const ShiftModal = ({
 
     try {
       // Combine date and time into ISO strings
-      const clockIn = new Date(`${date}T${startTime}:00`).toISOString();
-      const clockOut = new Date(`${date}T${endTime}:00`).toISOString();
+      const clockIn = clockInDateTime.toISOString();
+      const clockOut = clockOutDateTime.toISOString();
 
       await onSave({
         userId: selectedUserId,
@@ -179,50 +190,64 @@ export const ShiftModal = ({
             </select>
           </div>
 
-          {/* Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date *
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              disabled={!isManager}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
-            />
+          {/* Start Date and Time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Start Date *
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                disabled={!isManager}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Start Time *
+              </label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                disabled={!isManager}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
+              />
+            </div>
           </div>
 
-          {/* Start Time */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Start Time *
-            </label>
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              disabled={!isManager}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
-            />
-          </div>
-
-          {/* End Time */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              End Time *
-            </label>
-            <input
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              disabled={!isManager}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
-            />
+          {/* End Date and Time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                End Date *
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                disabled={!isManager}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                End Time *
+              </label>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                disabled={!isManager}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
+              />
+            </div>
           </div>
 
           {/* Confirmation Display */}
-          {selectedEmployee && date && startTime && endTime && (
+          {selectedEmployee && startDate && endDate && startTime && endTime && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm font-medium text-blue-900 mb-2">Shift Summary:</p>
               <div className="text-sm text-blue-800 space-y-1">
@@ -230,19 +255,20 @@ export const ShiftModal = ({
                   <span className="font-medium">Employee:</span> {selectedEmployee.full_name}
                 </p>
                 <p>
-                  <span className="font-medium">Date:</span>{' '}
-                  {format(new Date(date), 'EEEE, MMMM d, yyyy')}
+                  <span className="font-medium">Start:</span>{' '}
+                  {format(new Date(startDate), 'EEE, MMM d, yyyy')} at {startTime}
                 </p>
                 <p>
-                  <span className="font-medium">Time:</span> {startTime} - {endTime}
+                  <span className="font-medium">End:</span>{' '}
+                  {format(new Date(endDate), 'EEE, MMM d, yyyy')} at {endTime}
                 </p>
                 <p>
                   <span className="font-medium">Duration:</span>{' '}
                   {(() => {
-                    const [startHour, startMin] = startTime.split(':').map(Number);
-                    const [endHour, endMin] = endTime.split(':').map(Number);
-                    const durationMinutes =
-                      endHour * 60 + endMin - (startHour * 60 + startMin);
+                    const clockInDateTime = new Date(`${startDate}T${startTime}:00`);
+                    const clockOutDateTime = new Date(`${endDate}T${endTime}:00`);
+                    const durationMs = clockOutDateTime.getTime() - clockInDateTime.getTime();
+                    const durationMinutes = Math.floor(durationMs / (1000 * 60));
                     const hours = Math.floor(durationMinutes / 60);
                     const minutes = durationMinutes % 60;
                     return `${hours}h ${minutes}m`;
