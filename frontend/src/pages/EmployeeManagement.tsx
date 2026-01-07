@@ -250,6 +250,19 @@ export const EmployeeManagement = () => {
     setIsModalOpen(true);
   };
 
+  const handleCreateParallelShift = () => {
+    if (!selectedShift) return;
+
+    // Extract date and time from the selected shift
+    const clockInDate = new Date(selectedShift.clock_in);
+
+    setSelectedShift(undefined);
+    setModalInitialDate(clockInDate);
+    setModalInitialHour(clockInDate.getHours());
+    setModalInitialMinute(clockInDate.getMinutes());
+    setIsModalOpen(true);
+  };
+
   const handleSaveShift = async (data: {
     userId: number;
     clockIn: string;
@@ -316,6 +329,7 @@ export const EmployeeManagement = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveShift}
         onDelete={selectedShift ? handleDeleteShift : undefined}
+        onCreateParallel={selectedShift ? handleCreateParallelShift : undefined}
         employees={employees}
         initialDate={modalInitialDate}
         initialHour={modalInitialHour}

@@ -13,6 +13,7 @@ interface ShiftModalProps {
     clockOut: string;
   }) => Promise<void>;
   onDelete?: () => Promise<void>;
+  onCreateParallel?: () => void;
   employees: EmployeeWithStats[];
   initialDate?: Date;
   initialHour?: number;
@@ -26,6 +27,7 @@ export const ShiftModal = ({
   onClose,
   onSave,
   onDelete,
+  onCreateParallel,
   employees,
   initialDate,
   initialHour = 9,
@@ -253,7 +255,7 @@ export const ShiftModal = ({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 flex justify-between">
-          <div>
+          <div className="flex gap-2">
             {existingShift && isManager && onDelete && (
               <Button
                 variant="secondary"
@@ -262,6 +264,19 @@ export const ShiftModal = ({
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
                 Delete
+              </Button>
+            )}
+            {existingShift && isManager && onCreateParallel && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  onClose();
+                  onCreateParallel();
+                }}
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Create Parallel Shift
               </Button>
             )}
           </div>
