@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/services/api';
 import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/Button';
 import { EmployeeList } from '@/components/EmployeeList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { ShiftModal } from '@/components/ShiftModal';
@@ -21,8 +20,8 @@ import { TextSearchFilter } from '@/components/filters/TextSearchFilter';
 export const EmployeeManagement = () => {
   const { user } = useAuth();
   const [shifts, setShifts] = useState<ShiftWithUserInfo[]>([]);
-  const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const startDate = format(subDays(new Date(), 30), 'yyyy-MM-dd');
+  const endDate = format(new Date(), 'yyyy-MM-dd');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -167,10 +166,6 @@ export const EmployeeManagement = () => {
     } catch (err) {
       setError(api.getErrorMessage(err));
     }
-  };
-
-  const handleFilterChange = () => {
-    loadShifts();
   };
 
   // Reload shifts when filters change
@@ -337,37 +332,6 @@ export const EmployeeManagement = () => {
         existingShift={selectedShift}
         isManager={true}
       />
-
-      {/* Date Range Filter for Shifts */}
-      <Card title="Filter Employee Shifts">
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              End Date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-          <Button onClick={handleFilterChange} isLoading={isLoading}>
-            Apply Filter
-          </Button>
-        </div>
-      </Card>
 
       {/* All Employee Shifts Table */}
       <Card title="All Employee Shifts">
