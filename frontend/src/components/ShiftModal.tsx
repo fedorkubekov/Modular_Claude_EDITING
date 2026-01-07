@@ -274,7 +274,7 @@ export const ShiftModal = ({
                   onCreateParallel();
                 }}
                 disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold"
               >
                 Create Parallel Shift
               </Button>
