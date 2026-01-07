@@ -106,6 +106,15 @@ export const ShiftModal = ({
       return;
     }
 
+    // Validate shift duration does not exceed 12 hours
+    const durationMs = clockOutDateTime.getTime() - clockInDateTime.getTime();
+    const durationHours = durationMs / (1000 * 60 * 60);
+
+    if (durationHours > 12) {
+      setError('Duration of a work shift must not exceed 12 hours');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
