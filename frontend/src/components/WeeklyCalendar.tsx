@@ -115,9 +115,9 @@ export const WeeklyCalendar = ({
         grouped[block.column] = [];
       }
 
-      // Find overlapping group
-      let added = false;
-      for (const group of grouped[block.column]) {
+      // Find all overlapping groups and merge them
+      const overlappingGroups: number[] = [];
+      grouped[block.column].forEach((group, groupIndex) => {
         const overlaps = group.some((existingBlock) => {
           const blockEnd = block.top + block.height;
           const existingEnd = existingBlock.top + existingBlock.height;
@@ -125,14 +125,29 @@ export const WeeklyCalendar = ({
         });
 
         if (overlaps) {
-          group.push(block);
-          added = true;
-          break;
+          overlappingGroups.push(groupIndex);
         }
-      }
+      });
 
-      if (!added) {
+      if (overlappingGroups.length === 0) {
+        // No overlaps, create new group
         grouped[block.column].push([block]);
+      } else if (overlappingGroups.length === 1) {
+        // Overlaps with one group, add to it
+        grouped[block.column][overlappingGroups[0]].push(block);
+      } else {
+        // Overlaps with multiple groups, merge them all
+        const mergedGroup: ShiftBlock[] = [block];
+
+        // Collect all blocks from overlapping groups (in reverse to maintain indices)
+        for (let i = overlappingGroups.length - 1; i >= 0; i--) {
+          const groupIndex = overlappingGroups[i];
+          mergedGroup.push(...grouped[block.column][groupIndex]);
+          grouped[block.column].splice(groupIndex, 1);
+        }
+
+        // Add the merged group
+        grouped[block.column].push(mergedGroup);
       }
     });
 
