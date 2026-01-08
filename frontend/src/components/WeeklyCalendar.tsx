@@ -45,10 +45,11 @@ export const WeeklyCalendar = ({
   // Calculate shift blocks with positioning
   const shiftBlocks = useMemo(() => {
     const blocks: ShiftBlock[] = [];
+    const now = new Date(); // Single reference time for all in-progress shifts
 
     shifts.forEach((shift) => {
       const clockIn = new Date(shift.clock_in);
-      const clockOut = shift.clock_out ? new Date(shift.clock_out) : new Date();
+      const clockOut = shift.clock_out ? new Date(shift.clock_out) : now;
 
       // Find which day column this shift belongs to
       const column = weekDays.findIndex((day) => isSameDay(day, clockIn));
@@ -103,7 +104,11 @@ export const WeeklyCalendar = ({
       });
     });
 
-    return blocks;
+    // Sort blocks by column, then by top position for consistent processing
+    return blocks.sort((a, b) => {
+      if (a.column !== b.column) return a.column - b.column;
+      return a.top - b.top;
+    });
   }, [shifts, weekDays, isManager, currentUserId]);
 
   // Group blocks by column and detect overlaps
@@ -121,7 +126,8 @@ export const WeeklyCalendar = ({
         const overlaps = group.some((existingBlock) => {
           const blockEnd = block.top + block.height;
           const existingEnd = existingBlock.top + existingBlock.height;
-          return !(blockEnd <= existingBlock.top || block.top >= existingEnd);
+          // Check for overlap with 1px tolerance to handle edge cases
+          return !(blockEnd <= existingBlock.top + 1 || block.top >= existingEnd - 1);
         });
 
         if (overlaps) {
