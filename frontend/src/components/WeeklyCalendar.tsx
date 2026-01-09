@@ -124,10 +124,14 @@ export const WeeklyCalendar = ({
       const overlappingGroups: number[] = [];
       grouped[block.column].forEach((group, groupIndex) => {
         const overlaps = group.some((existingBlock) => {
+          // Standard interval overlap check: two intervals overlap if start1 < end2 AND start2 < end1
+          const blockStart = block.top;
           const blockEnd = block.top + block.height;
+          const existingStart = existingBlock.top;
           const existingEnd = existingBlock.top + existingBlock.height;
-          // Check for overlap with 1px tolerance to handle edge cases
-          return !(blockEnd <= existingBlock.top + 1 || block.top >= existingEnd - 1);
+
+          // Check for any overlap (including touching edges)
+          return blockStart < existingEnd && existingStart < blockEnd;
         });
 
         if (overlaps) {
