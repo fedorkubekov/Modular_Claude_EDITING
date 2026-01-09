@@ -143,7 +143,7 @@ func (h *Handler) GetAllShifts(w http.ResponseWriter, r *http.Request) {
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
 	// Parse date range (default to last 30 days)
-	endDate := time.Now()
+	endDate := time.Now().UTC()
 	startDate := endDate.AddDate(0, 0, -30)
 
 	if startStr := r.URL.Query().Get("start_date"); startStr != "" {
@@ -184,7 +184,7 @@ func (h *Handler) GetReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse date range (default to last 30 days)
-	endDate := time.Now()
+	endDate := time.Now().UTC()
 	startDate := endDate.AddDate(0, 0, -30)
 
 	if startStr := r.URL.Query().Get("start_date"); startStr != "" {

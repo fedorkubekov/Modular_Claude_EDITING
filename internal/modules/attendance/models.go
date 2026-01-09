@@ -85,7 +85,7 @@ func CreateShift(db *sql.DB, userID, companyID int) (*Shift, error) {
 	shift := &Shift{
 		UserID:    userID,
 		CompanyID: companyID,
-		ClockIn:   time.Now(),
+		ClockIn:   time.Now().UTC(),
 		Status:    "in_progress",
 	}
 
@@ -106,7 +106,7 @@ func CreateShift(db *sql.DB, userID, companyID int) (*Shift, error) {
 
 // EndShift ends an active shift
 func EndShift(db *sql.DB, userID int, notes string) (*Shift, error) {
-	clockOut := time.Now()
+	clockOut := time.Now().UTC()
 
 	shift := &Shift{}
 	err := db.QueryRow(`
@@ -416,8 +416,8 @@ func GetShiftReport(db *sql.DB, companyID int, startDate, endDate time.Time) (*S
 // GetEmployeesWithMonthlyHours retrieves all employees with their monthly hours worked
 func GetEmployeesWithMonthlyHours(db *sql.DB, companyID int) ([]EmployeeWithStats, error) {
 	// Calculate start of current month
-	now := time.Now()
-	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	now := time.Now().UTC()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 	endOfMonth := startOfMonth.AddDate(0, 1, 0)
 
 	rows, err := db.Query(`
