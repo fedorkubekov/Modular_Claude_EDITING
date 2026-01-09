@@ -45,11 +45,10 @@ export const WeeklyCalendar = ({
   // Calculate shift blocks with positioning
   const shiftBlocks = useMemo(() => {
     const blocks: ShiftBlock[] = [];
-    const now = new Date(); // Single reference time for all in-progress shifts
 
     shifts.forEach((shift) => {
       const clockIn = new Date(shift.clock_in);
-      const clockOut = shift.clock_out ? new Date(shift.clock_out) : now;
+      const clockOut = shift.clock_out ? new Date(shift.clock_out) : new Date();
 
       // Find which day column this shift belongs to
       const column = weekDays.findIndex((day) => isSameDay(day, clockIn));
@@ -104,11 +103,7 @@ export const WeeklyCalendar = ({
       });
     });
 
-    // Sort blocks by column, then by top position for consistent processing
-    return blocks.sort((a, b) => {
-      if (a.column !== b.column) return a.column - b.column;
-      return a.top - b.top;
-    });
+    return blocks;
   }, [shifts, weekDays, isManager, currentUserId]);
 
   // Group blocks by column and detect overlaps
@@ -120,44 +115,24 @@ export const WeeklyCalendar = ({
         grouped[block.column] = [];
       }
 
-      // Find all overlapping groups and merge them
-      const overlappingGroups: number[] = [];
-      grouped[block.column].forEach((group, groupIndex) => {
+      // Find overlapping group
+      let added = false;
+      for (const group of grouped[block.column]) {
         const overlaps = group.some((existingBlock) => {
-          // Standard interval overlap check: two intervals overlap if start1 < end2 AND start2 < end1
-          const blockStart = block.top;
           const blockEnd = block.top + block.height;
-          const existingStart = existingBlock.top;
           const existingEnd = existingBlock.top + existingBlock.height;
-
-          // Check for any overlap (including touching edges)
-          return blockStart < existingEnd && existingStart < blockEnd;
+          return !(blockEnd <= existingBlock.top || block.top >= existingEnd);
         });
 
         if (overlaps) {
-          overlappingGroups.push(groupIndex);
+          group.push(block);
+          added = true;
+          break;
         }
-      });
+      }
 
-      if (overlappingGroups.length === 0) {
-        // No overlaps, create new group
+      if (!added) {
         grouped[block.column].push([block]);
-      } else if (overlappingGroups.length === 1) {
-        // Overlaps with one group, add to it
-        grouped[block.column][overlappingGroups[0]].push(block);
-      } else {
-        // Overlaps with multiple groups, merge them all
-        const mergedGroup: ShiftBlock[] = [block];
-
-        // Collect all blocks from overlapping groups (in reverse to maintain indices)
-        for (let i = overlappingGroups.length - 1; i >= 0; i--) {
-          const groupIndex = overlappingGroups[i];
-          mergedGroup.push(...grouped[block.column][groupIndex]);
-          grouped[block.column].splice(groupIndex, 1);
-        }
-
-        // Add the merged group
-        grouped[block.column].push(mergedGroup);
       }
     });
 
