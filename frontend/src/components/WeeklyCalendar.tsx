@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, addDays, isSameDay } from 'date-fns';
 import type { ShiftWithUserInfo } from '@/types';
 import { Button } from './ui/Button';
@@ -33,6 +33,16 @@ export const WeeklyCalendar = ({
   isManager = false,
 }: WeeklyCalendarProps) => {
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every 60 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Generate hours array (0-23)
   const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -150,6 +160,25 @@ export const WeeklyCalendar = ({
     return `${dayIndex}-${hour}-${segment}`;
   };
 
+  // Calculate current time indicator position
+  const currentTimeIndicator = useMemo(() => {
+    const todayColumn = weekDays.findIndex((day) => isSameDay(day, currentTime));
+
+    if (todayColumn === -1) {
+      return null; // Today is not in the current week view
+    }
+
+    const currentHour = currentTime.getHours();
+    const currentMinute = currentTime.getMinutes();
+    const topPosition = currentHour * 60 + currentMinute;
+
+    return {
+      column: todayColumn,
+      top: topPosition,
+      time: format(currentTime, 'HH:mm'),
+    };
+  }, [currentTime, weekDays]);
+
   return (
     <div className="bg-white rounded-lg shadow">
       {/* Header with week navigation */}
@@ -252,6 +281,22 @@ export const WeeklyCalendar = ({
                     </div>
                   ));
                 })}
+
+                {/* Current Time Indicator */}
+                {currentTimeIndicator && currentTimeIndicator.column === dayIndex && (
+                  <div
+                    className="absolute left-0 right-0 pointer-events-none z-50"
+                    style={{ top: `${currentTimeIndicator.top}px` }}
+                  >
+                    <div className="relative">
+                      <div className="h-0.5 bg-red-500"></div>
+                      <div className="absolute left-0 -top-3 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded font-semibold">
+                        {currentTimeIndicator.time}
+                      </div>
+                      <div className="absolute left-0 -top-1 w-2 h-2 bg-red-500 rounded-full"></div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
