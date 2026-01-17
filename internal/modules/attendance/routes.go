@@ -27,4 +27,14 @@ func RegisterRoutes(router *mux.Router, db *sql.DB, jwtSecret string) {
 	managerRouter.Use(middleware.RequireRole("manager", "admin"))
 	managerRouter.HandleFunc("/shifts", handler.GetAllShifts).Methods("GET", "OPTIONS")
 	managerRouter.HandleFunc("/report", handler.GetReport).Methods("GET", "OPTIONS")
+	managerRouter.HandleFunc("/employees", handler.GetEmployees).Methods("GET", "OPTIONS")
+	managerRouter.HandleFunc("/employees/schedule", handler.UpdateEmployeeSchedule).Methods("PUT", "OPTIONS")
+
+	// Calendar/Schedule management endpoints (managers only can modify)
+	managerRouter.HandleFunc("/shifts/assign", handler.AssignShift).Methods("POST", "OPTIONS")
+	managerRouter.HandleFunc("/shifts/update", handler.UpdateShift).Methods("PUT", "OPTIONS")
+	managerRouter.HandleFunc("/shifts/delete", handler.DeleteShift).Methods("DELETE", "OPTIONS")
+
+	// Calendar viewing (all authenticated users can view)
+	attendanceRouter.HandleFunc("/shifts/week", handler.GetWeekShifts).Methods("GET", "OPTIONS")
 }

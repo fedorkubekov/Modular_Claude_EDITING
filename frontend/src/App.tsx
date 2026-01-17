@@ -5,6 +5,8 @@ import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
+import { EmployeeManagement } from './pages/EmployeeManagement';
+import { MySchedule } from './pages/MySchedule';
 
 function App() {
   return (
@@ -22,6 +24,26 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employee-management"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <EmployeeManagement />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-schedule"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <MySchedule />
                 </Layout>
               </ProtectedRoute>
             }

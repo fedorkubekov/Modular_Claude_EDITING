@@ -1,4 +1,7 @@
 // User and Authentication Types
+export type EmploymentType = 'Full-Time' | 'Part-Time' | 'Seasonal' | 'Temporary' | 'On-Call';
+export type ShiftType = 'First Shift' | 'Second Shift' | 'Third Shift';
+
 export interface User {
   id: number;
   company_id: number;
@@ -6,6 +9,8 @@ export interface User {
   email: string;
   full_name: string;
   role: 'admin' | 'manager' | 'employee';
+  employment_type: EmploymentType;
+  shift_type: ShiftType;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -38,7 +43,7 @@ export interface Shift {
   company_id: number;
   clock_in: string;
   clock_out?: string | null;
-  status: 'in_progress' | 'completed' | 'cancelled';
+  status: 'assigned' | 'in_progress' | 'completed' | 'cancelled';
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -79,6 +84,22 @@ export interface ShiftsWithUserInfoResponse {
   end_date: string;
 }
 
+// Shift Filters
+export interface ShiftFilters {
+  userIds?: number[];          // Filter by employee IDs (manager only)
+  roles?: string[];             // Filter by user roles
+  statuses?: string[];          // Filter by shift statuses
+  notesSearch?: string;         // Search in notes field
+  clockInFrom?: string;         // Clock in start time (ISO string)
+  clockInTo?: string;           // Clock in end time (ISO string)
+  clockOutFrom?: string;        // Clock out start time (ISO string)
+  clockOutTo?: string;          // Clock out end time (ISO string)
+  durationMinHours?: number;    // Minimum duration hours (0-23)
+  durationMinMins?: number;     // Minimum duration minutes (0-59)
+  durationMaxHours?: number;    // Maximum duration hours (0-23)
+  durationMaxMins?: number;     // Maximum duration minutes (0-59)
+}
+
 export interface ReportResponse {
   report: ShiftReport;
   start_date: string;
@@ -98,6 +119,46 @@ export interface ClockOutResponse {
 export interface ActiveShiftResponse {
   message?: string;
   shift: Shift | null;
+}
+
+// Employee Management Types
+export interface EmployeeWithStats {
+  id: number;
+  full_name: string;
+  username: string;
+  email: string;
+  role: string;
+  employment_type: EmploymentType;
+  shift_type: ShiftType;
+  monthly_hours: number;
+  is_active: boolean;
+}
+
+export interface EmployeesResponse {
+  employees: EmployeeWithStats[];
+  count: number;
+}
+
+export interface UpdateScheduleRequest {
+  employment_type: EmploymentType;
+  shift_type: ShiftType;
+}
+
+// Calendar Types
+export interface AssignShiftRequest {
+  user_id: number;
+  clock_in: string;
+  clock_out: string;
+}
+
+export interface UpdateShiftRequest {
+  clock_in: string;
+  clock_out: string;
+}
+
+export interface WeekShiftsResponse {
+  shifts: ShiftWithUserInfo[];
+  count: number;
 }
 
 // Context Types

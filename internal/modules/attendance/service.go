@@ -25,12 +25,12 @@ func (s *Service) ClockOut(userID int, notes string) (*Shift, error) {
 	return EndShift(s.db, userID, notes)
 }
 
-// GetMyShifts retrieves shifts for a specific user
-func (s *Service) GetMyShifts(userID int, limit, offset int) ([]Shift, error) {
+// GetMyShifts retrieves shifts for a specific user with optional filters
+func (s *Service) GetMyShifts(userID int, filters *ShiftFilters, limit, offset int) ([]Shift, error) {
 	if limit == 0 {
 		limit = 50
 	}
-	return GetUserShifts(s.db, userID, limit, offset)
+	return GetUserShifts(s.db, userID, filters, limit, offset)
 }
 
 // GetMyActiveShift retrieves the active shift for a user
@@ -38,15 +38,45 @@ func (s *Service) GetMyActiveShift(userID int) (*Shift, error) {
 	return GetActiveShift(s.db, userID)
 }
 
-// GetAllShifts retrieves all shifts for a company (manager/admin only)
-func (s *Service) GetAllShifts(companyID int, startDate, endDate time.Time, limit, offset int) ([]ShiftWithUserInfo, error) {
+// GetAllShifts retrieves all shifts for a company with optional filters (manager/admin only)
+func (s *Service) GetAllShifts(companyID int, startDate, endDate time.Time, filters *ShiftFilters, limit, offset int) ([]ShiftWithUserInfo, error) {
 	if limit == 0 {
 		limit = 100
 	}
-	return GetCompanyShifts(s.db, companyID, startDate, endDate, limit, offset)
+	return GetCompanyShifts(s.db, companyID, startDate, endDate, filters, limit, offset)
 }
 
 // GetReport generates attendance statistics (manager/admin only)
 func (s *Service) GetReport(companyID int, startDate, endDate time.Time) (*ShiftReport, error) {
 	return GetShiftReport(s.db, companyID, startDate, endDate)
+}
+
+// GetEmployeesWithStats retrieves all employees with their monthly hours worked (manager/admin only)
+func (s *Service) GetEmployeesWithStats(companyID int) ([]EmployeeWithStats, error) {
+	return GetEmployeesWithMonthlyHours(s.db, companyID)
+}
+
+// UpdateEmployeeSchedule updates an employee's schedule (manager/admin only)
+func (s *Service) UpdateEmployeeSchedule(companyID, employeeID int, employmentType, shiftType string) error {
+	return UpdateEmployeeSchedule(s.db, companyID, employeeID, employmentType, shiftType)
+}
+
+// AssignShift assigns a shift to an employee (manager/admin only)
+func (s *Service) AssignShift(companyID, userID int, clockIn, clockOut time.Time) (*Shift, error) {
+	return AssignShift(s.db, companyID, userID, clockIn, clockOut)
+}
+
+// UpdateShift updates a shift (manager/admin only)
+func (s *Service) UpdateShift(companyID, shiftID int, clockIn, clockOut time.Time) error {
+	return UpdateShift(s.db, companyID, shiftID, clockIn, clockOut)
+}
+
+// DeleteShift deletes a shift (manager/admin only)
+func (s *Service) DeleteShift(companyID, shiftID int) error {
+	return DeleteShift(s.db, companyID, shiftID)
+}
+
+// GetWeekShifts retrieves all shifts for a week (manager/admin only)
+func (s *Service) GetWeekShifts(companyID int, weekStart time.Time) ([]ShiftWithUserInfo, error) {
+	return GetWeekShifts(s.db, companyID, weekStart)
 }
